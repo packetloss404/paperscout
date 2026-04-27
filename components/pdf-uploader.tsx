@@ -5,13 +5,11 @@ import { useRouter } from 'next/navigation';
 import { Upload, Loader2, CheckCircle2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
-type Step = 'idle' | 'uploading' | 'extracting' | 'saving' | 'done' | 'error';
+type Step = 'idle' | 'uploading' | 'done' | 'error';
 
 const STEP_LABELS: Record<Step, string> = {
   idle: 'Drag & drop your PDF here',
-  uploading: 'Uploading PDF...',
-  extracting: 'Extracting text & chapters...',
-  saving: 'Saving to library...',
+  uploading: 'Processing PDF...',
   done: 'Done!',
   error: 'Something went wrong',
 };
@@ -53,43 +51,19 @@ export function PDFUploader() {
     setErrorMsg('');
 
     try {
-      // Step 1: Upload to Vercel Blob via server route
       setStep('uploading');
 
       const formData = new FormData();
       formData.append('file', file);
       formData.append('pdfId', pdfId);
 
-      const uploadResponse = await fetch('/api/upload-pdf', {
+      const response = await fetch('/api/upload-pdf', {
         method: 'POST',
         body: formData,
       });
 
-      if (!uploadResponse.ok) {
-        const error = await uploadResponse.json();
-        throw new Error(error.error || 'Failed to upload PDF');
-      }
-
-      const uploadData = await uploadResponse.json();
-      const blobPathname = uploadData.blobPathname;
-
-      // Step 2: Process PDF (extract text from blob)
-      setStep('extracting');
-      await new Promise((r) => setTimeout(r, 300));
-
-      setStep('saving');
-      const processResponse = await fetch('/api/process-pdf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          pdfId,
-          blobPathname,
-          fileName: file.name,
-        }),
-      });
-
-      if (!processResponse.ok) {
-        const error = await processResponse.json();
+      if (!response.ok) {
+        const error = await response.json();
         throw new Error(error.error || 'Failed to process PDF');
       }
 
@@ -148,8 +122,8 @@ export function PDFUploader() {
 
         {isProcessing && (
           <div className="flex items-center gap-2 mt-1">
-            {(['uploading', 'extracting', 'saving', 'done'] as Step[]).map((s, i) => {
-              const steps: Step[] = ['uploading', 'extracting', 'saving', 'done'];
+            {(['uploading', 'done'] as Step[]).map((s, i) => {
+              const steps: Step[] = ['uploading', 'done'];
               const currentIdx = steps.indexOf(step);
               const thisIdx = steps.indexOf(s);
               const done = thisIdx < currentIdx;
@@ -161,7 +135,7 @@ export function PDFUploader() {
                       done ? 'bg-primary' : active ? 'bg-primary animate-pulse' : 'bg-border'
                     }`}
                   />
-                  {i < 3 && <div className="w-6 h-px bg-border" />}
+                  {i < 1 && <div className="w-6 h-px bg-border" />}
                 </div>
               );
             })}
