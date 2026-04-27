@@ -4,6 +4,7 @@ import { Chapter } from './db';
 // Configure worker for browser environment
 if (typeof window !== 'undefined') {
   pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+  console.log('[v0] Worker source set to:', pdfjsLib.GlobalWorkerOptions.workerSrc);
 }
 
 export interface ExtractedContent {
@@ -14,31 +15,44 @@ export interface ExtractedContent {
 
 export async function extractPDFContent(file: File): Promise<ExtractedContent> {
   try {
+    console.log('[v0] PDF extraction starting');
     const arrayBuffer = await file.arrayBuffer();
+    console.log('[v0] File read, size:', arrayBuffer.byteLength);
+    
+    console.log('[v0] Loading PDF document...');
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    console.log('[v0] PDF loaded, pages:', pdf.numPages);
     const pageCount = pdf.numPages;
 
     let fullText = '';
 
-    // Extract text from pages (limit to first 100 pages for performance)
-    const maxPages = Math.min(pageCount, 100);
+    // Extract text from pages (limit to first 20 pages for performance)
+    const maxPages = Math.min(pageCount, 20);
+    console.log('[v0] Extracting text from', maxPages, 'pages');
+    
     for (let i = 1; i <= maxPages; i++) {
       try {
+        console.log('[v0] Getting page', i);
         const page = await pdf.getPage(i);
+        console.log('[v0] Got page', i, ', extracting text');
         const textContent = await page.getTextContent();
         const pageText = textContent.items
           .filter((item: any) => 'str' in item)
           .map((item: any) => item.str)
           .join(' ');
         fullText += pageText + '\n\n';
+        console.log('[v0] Extracted page', i, ', text length:', pageText.length);
       } catch (pageError) {
         console.warn(`[v0] Error extracting page ${i}:`, pageError);
         continue;
       }
     }
 
+    console.log('[v0] Text extraction complete, total length:', fullText.length);
+
     // Parse chapters from content
     const chapters = parseChapters(fullText);
+    console.log('[v0] Chapters parsed:', chapters.length);
 
     return {
       text: fullText,

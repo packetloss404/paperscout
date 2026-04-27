@@ -56,14 +56,18 @@ export function PDFUploader() {
     try {
       // Step 1: read the file
       setStep('reading');
+      console.log('[v0] Upload step: reading');
       await new Promise((r) => setTimeout(r, 300)); // small delay for UX
 
       // Step 2: extract text client-side (avoids 413 payload limit)
       setStep('extracting');
+      console.log('[v0] Upload step: extracting');
       const extracted = await extractPDFContent(file);
+      console.log('[v0] Extraction complete');
 
       // Step 3: save to server
       setStep('saving');
+      console.log('[v0] Upload step: saving');
       const response = await fetch('/api/process-pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -83,10 +87,12 @@ export function PDFUploader() {
 
       // Step 4: done — redirect to book
       setStep('done');
+      console.log('[v0] Upload step: done, redirecting');
       await new Promise((r) => setTimeout(r, 500));
       router.push(`/book/${pdfId}`);
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[v0] Upload error:', msg, error);
       setErrorMsg(msg);
       setStep('error');
     }
