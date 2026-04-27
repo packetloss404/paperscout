@@ -1,10 +1,5 @@
-import * as pdfjsLib from 'pdfjs-dist';
+import pdfParse from 'pdf-parse';
 import { Chapter } from './db';
-
-// Set up the worker for Node.js environment
-if (typeof window === 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = require('pdfjs-dist/build/pdf.worker.min.js');
-}
 
 export interface ExtractedContent {
   text: string;
@@ -12,41 +7,13 @@ export interface ExtractedContent {
   pageCount: number;
 }
 
-export async function extractPDFContent(file: File | Buffer): Promise<ExtractedContent> {
+export async function extractPDFContent(buffer: Buffer): Promise<ExtractedContent> {
   try {
-    let data: ArrayBuffer;
-    
-    // Handle both File (browser) and Buffer (Node.js) inputs
-    if (file instanceof File) {
-      data = await file.arrayBuffer();
-    } else if (Buffer.isBuffer(file)) {
-      data = file.buffer;
-    } else {
-      throw new Error('Invalid file input');
-    }
+    const data = await pdfParse(buffer);
+    const fullText = data.text;
+    const pageCount = data.numpages;
 
-    const pdf = await pdfjsLib.getDocument({ data }).promise;
-    const pageCount = pdf.numPages;
-
-    let fullText = '';
-
-    // Extract text from all pages
-    for (let i = 1; i <= Math.min(pageCount, 50); i++) {
-      try {
-        const page = await pdf.getPage(i);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items
-          .filter((item: any) => 'str' in item)
-          .map((item: any) => item.str)
-          .join(' ');
-        fullText += pageText + '\n\n';
-      } catch (pageError) {
-        console.warn(`[v0] Error extracting page ${i}:`, pageError);
-        continue;
-      }
-    }
-
-    // Parse chapters from content (basic structure detection)
+    // Parse chapters from content
     const chapters = parseChapters(fullText);
 
     return {
@@ -61,14 +28,14 @@ export async function extractPDFContent(file: File | Buffer): Promise<ExtractedC
 }
 
 function parseChapters(text: string): Chapter[] {
-  const lines = text.split('\n');
+  const lines = text.split('\n').filter(line => line.trim().length > 0);
   const chapters: Chapter[] = [];
   let currentChapter: Chapter | null = null;
   let contentBuffer: string[] = [];
 
   for (const line of lines) {
-    // Heuristic: lines that are short, on separate lines, or contain numbers might be titles
-    if (line.trim().length > 0 && isLikelyTitle(line)) {
+    // Heuristic: lines that are short and start with capital letter might be titles
+    if (isLikelyTitle(line)) {
       if (currentChapter) {
         currentChapter.content = contentBuffer.join('\n').trim();
         chapters.push(currentChapter);
@@ -90,25 +57,32 @@ function parseChapters(text: string): Chapter[] {
     chapters.push(currentChapter);
   }
 
-  // If no chapters detected, create a single chapter with all content
+  // If no chapters detected, create sections by splitting at blank lines
   if (chapters.length === 0) {
-    chapters.push({
-      id: '1',
-      title: 'Content',
-      content: text,
-    });
+    const sections = text.split('\n\n').filter(s => s.trim().length > 0);
+    for (let i = 0; i < Math.min(sections.length, 10); i++) {
+      const section = sections[i];
+      const lines = section.split('\n');
+      const title = lines[0].slice(0, 60) || `Section ${i + 1}`;
+      chapters.push({
+        id: Math.random().toString(36).substr(2, 9),
+        title,
+        content: section,
+      });
+    }
   }
 
-  return chapters;
+  // Limit to reasonable number of chapters
+  return chapters.slice(0, 50);
 }
 
 function isLikelyTitle(line: string): boolean {
   const trimmed = line.trim();
-  // Check if it looks like a title (short, doesn't end with period or comma)
+  // Check if it looks like a title
   return (
     trimmed.length > 0 &&
     trimmed.length < 100 &&
-    !trimmed.includes('  ') &&
-    !/^[a-z]/.test(trimmed)
+    /^[A-Z]/.test(trimmed) &&
+    !trimmed.includes('    ') // not heavily indented
   );
 }

@@ -46,8 +46,12 @@ export async function POST(request: NextRequest) {
 
 async function processInBackground(file: File, pdfId: string, title: string) {
   try {
+    // Convert File to Buffer
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
     // Extract content from PDF
-    const content = await extractPDFContent(file);
+    const content = await extractPDFContent(buffer);
 
     // Save processed PDF
     await db.savePDF({
