@@ -46,32 +46,28 @@ export function PDFUploader() {
     const pdfId = uuidv4();
 
     try {
-      console.log('[v0] Starting upload for:', file.name);
       // Send file to server for processing
       const formData = new FormData();
       formData.append('file', file);
       formData.append('pdfId', pdfId);
 
-      console.log('[v0] Calling /api/process-pdf');
       const response = await fetch('/api/process-pdf', {
         method: 'POST',
         body: formData,
       });
 
-      console.log('[v0] Response status:', response.status);
       if (response.ok) {
         const data = await response.json();
-        console.log('[v0] Upload successful, redirecting to:', `/processing/${pdfId}`);
         // Redirect to processing page
         router.push(`/processing/${pdfId}`);
       } else {
-        const errorData = await response.text();
-        console.error('[v0] Upload failed:', response.status, errorData);
-        alert('Error uploading PDF');
+        const errorText = await response.text();
+        console.error('[v0] Upload failed:', response.status, errorText);
+        alert(`Error uploading PDF: ${response.status} - ${errorText}`);
       }
     } catch (error) {
       console.error('[v0] Upload error:', error);
-      alert('Error uploading PDF');
+      alert(`Error uploading PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsUploading(false);
     }
