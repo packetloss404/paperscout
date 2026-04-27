@@ -38,11 +38,11 @@ export function ChapterNav({ chapters, onSelectChapter, isCollapsed }: ChapterNa
               toggleExpanded(chapter.id);
             }
           }}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded text-sm hover:bg-muted transition-colors text-left group"
-          style={{ paddingLeft: `${12 + depth * 12}px` }}
+          className="w-full flex items-center gap-2 px-4 py-3 rounded-lg text-sm hover:bg-primary/10 transition-all text-left group font-medium"
+          style={{ paddingLeft: `${16 + depth * 12}px` }}
         >
           {hasChildren && (
-            <span className="flex-shrink-0">
+            <span className="flex-shrink-0 text-muted-foreground group-hover:text-primary transition-colors">
               {isExpanded ? (
                 <ChevronDown className="w-4 h-4" />
               ) : (
@@ -51,7 +51,7 @@ export function ChapterNav({ chapters, onSelectChapter, isCollapsed }: ChapterNa
             </span>
           )}
           {!hasChildren && <span className="w-4 flex-shrink-0" />}
-          <span className="truncate text-foreground group-hover:text-primary">
+          <span className="truncate text-foreground group-hover:text-primary transition-colors">
             {chapter.title}
           </span>
         </button>
