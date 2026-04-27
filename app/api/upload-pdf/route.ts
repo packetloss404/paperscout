@@ -3,6 +3,14 @@ import { db } from '@/lib/db';
 
 export const maxDuration = 300;
 
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '50mb',
+    },
+  },
+};
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
