@@ -1,44 +1,70 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import Busboy from 'busboy';
-import { Readable } from 'stream';
 
 export const maxDuration = 300;
 
 export async function POST(request: NextRequest) {
   try {
-    const bb = Busboy({ headers: request.headers as any });
+    // Read the entire request body as buffer without going through formData parser
+    const buffer = await request.arrayBuffer();
+    
+    if (buffer.byteLength === 0) {
+      return NextResponse.json({ error: 'Empty request' }, { status: 400 });
+    }
+
+    // Parse multipart form data manually
+    const bodyBuffer = Buffer.from(buffer);
+    const contentType = request.headers.get('content-type') || '';
+    const boundaryMatch = contentType.match(/boundary=([^;]+)/);
+    const boundary = boundaryMatch ? boundaryMatch[1] : null;
+
+    if (!boundary) {
+      return NextResponse.json({ error: 'Invalid multipart form' }, { status: 400 });
+    }
+
+    // Split by boundary
+    const boundaryBuffer = Buffer.from(`--${boundary}`);
     let file: Buffer | null = null;
     let pdfId: string | null = null;
-    let fileName: string | null = null;
+    let fileName: string = 'document.pdf';
 
-    await new Promise<void>((resolve, reject) => {
-      bb.on('file', (fieldname: string, stream: any, info: any) => {
-        if (fieldname === 'file') {
-          fileName = info.filename;
-          const chunks: Buffer[] = [];
-          stream.on('data', (chunk: Buffer) => chunks.push(chunk));
-          stream.on('end', () => {
-            file = Buffer.concat(chunks);
-          });
-          stream.on('error', reject);
+    let currentPos = 0;
+    while (currentPos < bodyBuffer.length) {
+      const nextBoundary = bodyBuffer.indexOf(boundaryBuffer, currentPos);
+      if (nextBoundary === -1) break;
+
+      const sectionStart = currentPos + boundaryBuffer.length;
+      let sectionEnd = bodyBuffer.indexOf(boundaryBuffer, sectionStart);
+      if (sectionEnd === -1) sectionEnd = bodyBuffer.length;
+
+      const section = bodyBuffer.slice(sectionStart, sectionEnd);
+      const sectionStr = section.toString('utf8', 0, Math.min(500, section.length));
+
+      // Check if this is the file or pdfId field
+      if (sectionStr.includes('name="file"')) {
+        const headerEnd = section.indexOf('\r\n\r\n');
+        if (headerEnd !== -1) {
+          const fileStart = headerEnd + 4;
+          const fileEnd = section.lastIndexOf('\r\n');
+          file = section.slice(fileStart, fileEnd);
+          
+          // Extract filename
+          const filenameMatch = sectionStr.match(/filename="([^"]+)"/);
+          if (filenameMatch) {
+            fileName = filenameMatch[1];
+          }
         }
-      });
-
-      bb.on('field', (fieldname: string, value: string) => {
-        if (fieldname === 'pdfId') {
-          pdfId = value;
+      } else if (sectionStr.includes('name="pdfId"')) {
+        const headerEnd = section.indexOf('\r\n\r\n');
+        if (headerEnd !== -1) {
+          const dataStart = headerEnd + 4;
+          const dataEnd = section.lastIndexOf('\r\n');
+          pdfId = section.toString('utf8', dataStart, dataEnd);
         }
-      });
-
-      bb.on('finish', resolve);
-      bb.on('error', reject);
-
-      // Pipe request body to busboy
-      if (request.body) {
-        Readable.from(request.body as any).pipe(bb);
       }
-    });
+
+      currentPos = nextBoundary + 1;
+    }
 
     if (!file || !pdfId) {
       return NextResponse.json({ error: 'Missing file or pdfId' }, { status: 400 });
@@ -74,8 +100,8 @@ export async function POST(request: NextRequest) {
     // Save to database
     await db.savePDF({
       id: pdfId,
-      title: (fileName || 'document').replace(/\.pdf$/i, ''),
-      fileName: fileName || 'document.pdf',
+      title: fileName.replace(/\.pdf$/i, ''),
+      fileName,
       pageCount: Math.ceil(file.length / 1024),
       dateAdded: new Date(),
       content: cleanText,
@@ -86,6 +112,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ pdfId, status: 'complete' });
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Upload failed';
+    console.error('[v0] Upload error:', msg);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
