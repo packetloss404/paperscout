@@ -35,18 +35,28 @@ export default function BookPage() {
     loadAnnotations();
   }, [pdfId]);
 
-  const loadPDF = async () => {
+  const loadPDF = async (attempt = 0) => {
     try {
       const response = await fetch(`/api/pdf/${pdfId}`);
       if (response.ok) {
         const data: PDF = await response.json();
         setPdf(data);
-        if (data.status !== 'complete') {
-          setTimeout(loadPDF, 1000);
+        if (data.status !== 'complete' && attempt < 30) {
+          // Poll until complete, backing off slightly
+          setTimeout(() => loadPDF(attempt + 1), 600);
+          return;
         }
+      } else if (response.status === 404 && attempt < 30) {
+        // Not saved yet — keep polling
+        setTimeout(() => loadPDF(attempt + 1), 600);
+        return;
       }
     } catch (error) {
       console.error('Failed to load PDF:', error);
+      if (attempt < 30) {
+        setTimeout(() => loadPDF(attempt + 1), 600);
+        return;
+      }
     } finally {
       setIsLoading(false);
     }
@@ -99,19 +109,29 @@ export default function BookPage() {
     }
   };
 
-  if (isLoading) {
+  const stillLoading = isLoading || !pdf || pdf.status !== 'complete';
+
+  if (stillLoading) {
     return (
       <main className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full" />
+        <div className="text-center space-y-4">
+          <div className="flex justify-center">
+            <div className="animate-spin w-10 h-10 border-2 border-primary border-t-transparent rounded-full" />
+          </div>
+          <p className="text-foreground font-medium">
+            {!pdf ? 'Loading book...' : 'Finalising chapters...'}
+          </p>
+          <p className="text-sm text-muted-foreground">This only takes a moment</p>
+        </div>
       </main>
     );
   }
 
-  if (!pdf || pdf.status !== 'complete' || !pdf.chapters) {
+  if (!pdf.chapters || pdf.chapters.length === 0) {
     return (
       <main className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-muted-foreground mb-4">PDF not ready</p>
+        <div className="text-center space-y-4">
+          <p className="text-muted-foreground">No readable content found in this PDF.</p>
           <button
             onClick={() => router.push('/')}
             className="bg-primary text-primary-foreground rounded px-4 py-2 font-medium hover:bg-primary/90"
