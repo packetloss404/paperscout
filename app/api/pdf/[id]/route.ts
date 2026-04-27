@@ -3,11 +3,10 @@ import { db } from '@/lib/db';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  console.log('[v0] GET /api/pdf/:id', params.id);
-  const pdf = await db.getPDF(params.id);
-  console.log('[v0] PDF found:', !!pdf);
+  const { id } = await params;
+  const pdf = await db.getPDF(id);
   if (!pdf) {
     return NextResponse.json({ error: 'PDF not found' }, { status: 404 });
   }
@@ -16,17 +15,19 @@ export async function GET(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  await db.deletePDF(params.id);
+  const { id } = await params;
+  await db.deletePDF(id);
   return NextResponse.json({ success: true });
 }
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const pdf = await db.getPDF(params.id);
+  const { id } = await params;
+  const pdf = await db.getPDF(id);
   if (!pdf) {
     return NextResponse.json({ error: 'PDF not found' }, { status: 404 });
   }

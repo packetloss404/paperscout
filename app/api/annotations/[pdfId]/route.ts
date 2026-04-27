@@ -4,20 +4,22 @@ import { v4 as uuidv4 } from 'uuid';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { pdfId: string } }
+  { params }: { params: Promise<{ pdfId: string }> }
 ) {
-  const annotations = await db.getAnnotations(params.pdfId);
+  const { pdfId } = await params;
+  const annotations = await db.getAnnotations(pdfId);
   return NextResponse.json(annotations);
 }
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { pdfId: string } }
+  { params }: { params: Promise<{ pdfId: string }> }
 ) {
+  const { pdfId } = await params;
   const body = await request.json();
   const annotation: Annotation = {
     id: uuidv4(),
-    pdfId: params.pdfId,
+    pdfId,
     paragraphIndex: body.paragraphIndex,
     type: body.type,
     text: body.text,
@@ -30,9 +32,10 @@ export async function POST(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { pdfId: string } }
+  { params }: { params: Promise<{ pdfId: string }> }
 ) {
+  const { pdfId } = await params;
   const { annotationId } = await request.json();
-  await db.deleteAnnotation(params.pdfId, annotationId);
+  await db.deleteAnnotation(pdfId, annotationId);
   return NextResponse.json({ success: true });
 }
