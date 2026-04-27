@@ -53,46 +53,30 @@ export function PDFUploader() {
     setErrorMsg('');
 
     try {
-      // Step 1: Upload to Vercel Blob
+      // Step 1: Upload to Vercel Blob via server route
       setStep('uploading');
-      console.log('[v0] Starting upload for', file.name);
 
-      const uploadResponse = await fetch('/api/upload-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filename: file.name }),
-      });
-
-      if (!uploadResponse.ok) {
-        throw new Error('Failed to get upload URL');
-      }
-
-      const uploadData = await uploadResponse.json();
-      console.log('[v0] Got upload URL, uploading file...');
-
-      // Upload file directly to blob using multipart
       const formData = new FormData();
-      Object.entries(uploadData.formData || {}).forEach(([key, value]) => {
-        formData.append(key, value as string);
-      });
       formData.append('file', file);
+      formData.append('pdfId', pdfId);
 
-      const blobResponse = await fetch(uploadData.url || 'https://blob.vercelusercontent.com', {
+      const uploadResponse = await fetch('/api/upload-pdf', {
         method: 'POST',
         body: formData,
       });
 
-      if (!blobResponse.ok) {
-        throw new Error('Failed to upload to blob storage');
+      if (!uploadResponse.ok) {
+        const error = await uploadResponse.json();
+        throw new Error(error.error || 'Failed to upload PDF');
       }
 
-      const blobResult = await blobResponse.json();
-      const blobPathname = blobResult.pathname || uploadData.pathname;
-      console.log('[v0] File uploaded to blob:', blobPathname);
+      const uploadData = await uploadResponse.json();
+      const blobPathname = uploadData.blobPathname;
 
       // Step 2: Process PDF (extract text from blob)
       setStep('extracting');
-      
+      await new Promise((r) => setTimeout(r, 300));
+
       setStep('saving');
       const processResponse = await fetch('/api/process-pdf', {
         method: 'POST',
@@ -114,7 +98,6 @@ export function PDFUploader() {
       router.push(`/book/${pdfId}`);
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Unknown error';
-      console.error('[v0] Upload error:', msg);
       setErrorMsg(msg);
       setStep('error');
     }
