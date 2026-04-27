@@ -4,6 +4,7 @@ import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Upload } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
+import { extractPDFContent } from '@/lib/pdf-parser';
 
 export function PDFUploader() {
   const [isDragging, setIsDragging] = useState(false);
@@ -46,28 +47,39 @@ export function PDFUploader() {
     const pdfId = uuidv4();
 
     try {
-      // Send file to server for processing
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('pdfId', pdfId);
+      // Extract PDF content on the client side
+      console.log('[v0] Extracting PDF content...');
+      const extractedContent = await extractPDFContent(file);
+      console.log('[v0] PDF extracted successfully');
 
+      // Send extracted content to server (much smaller than the original PDF)
       const response = await fetch('/api/process-pdf', {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          pdfId,
+          title: file.name.replace(/\.pdf$/i, ''),
+          fileName: file.name,
+          content: extractedContent.text,
+          chapters: extractedContent.chapters,
+          pageCount: extractedContent.pageCount,
+        }),
       });
 
       if (response.ok) {
-        const data = await response.json();
-        // Redirect to processing page
-        router.push(`/processing/${pdfId}`);
+        console.log('[v0] Upload successful, redirecting to book view');
+        router.push(`/book/${pdfId}`);
       } else {
         const errorText = await response.text();
         console.error('[v0] Upload failed:', response.status, errorText);
-        alert(`Error uploading PDF: ${response.status} - ${errorText}`);
+        alert(`Error uploading PDF: ${response.status}`);
       }
     } catch (error) {
       console.error('[v0] Upload error:', error);
-      alert(`Error uploading PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      alert(`Error uploading PDF: ${errorMessage}`);
     } finally {
       setIsUploading(false);
     }
@@ -101,7 +113,7 @@ export function PDFUploader() {
         <Upload className="w-12 h-12 text-muted-foreground" />
         <div>
           <p className="font-semibold text-foreground">
-            {isUploading ? 'Uploading...' : 'Drag & drop your PDF here'}
+            {isUploading ? 'Processing PDF...' : 'Drag & drop your PDF here'}
           </p>
           <p className="text-sm text-muted-foreground">
             or click to select a file

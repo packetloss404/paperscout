@@ -1,42 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest) {
   try {
-    const formData = await request.formData();
-    const file = formData.get('file') as File;
-    const pdfId = formData.get('pdfId') as string;
+    const body = await request.json();
+    const { pdfId, title, fileName, content, chapters, pageCount } = body;
 
-    if (!file || !pdfId) {
+    if (!pdfId || !title) {
       return NextResponse.json(
-        { error: 'Missing file or PDF ID' },
+        { error: 'Missing required fields' },
         { status: 400 }
       );
     }
 
-    // Save PDF with processing status
-    const fileName = file.name;
-    const title = fileName.replace(/\.pdf$/i, '');
-
+    // Save processed PDF directly
     await db.savePDF({
       id: pdfId,
       title,
-      fileName,
-      pageCount: 0,
+      fileName: fileName || title,
+      pageCount: pageCount || 0,
       dateAdded: new Date(),
-      status: 'processing',
-      chapters: [
-        {
-          id: '1',
-          title: 'Loading...',
-          content: 'PDF is being processed. Please wait.',
-        }
-      ]
+      content: content || '',
+      chapters: chapters || [],
+      status: 'complete',
     });
 
     return NextResponse.json({
       pdfId,
-      status: 'processing',
+      status: 'complete',
     });
   } catch (error) {
     console.error('[v0] PDF processing error:', error);
