@@ -16,6 +16,59 @@ const STEP_LABELS: Record<Step, string> = {
   error: 'Something went wrong',
 };
 
+const DEMO_CHAPTERS = [
+  {
+    id: '1',
+    title: 'Introduction to Machine Learning',
+    content: `Machine learning is a subset of artificial intelligence that enables systems to learn and improve from experience without being explicitly programmed. It focuses on developing computer programs that can access data and use it to learn for themselves.
+
+The process of learning begins with observations or data, such as examples, direct experience, or instruction, in order to look for patterns in data and make better decisions in the future based on the examples that we provide.
+
+Machine learning algorithms build a mathematical model based on sample data, known as "training data", in order to make predictions or decisions without being explicitly programmed to perform the task.`,
+  },
+  {
+    id: '2',
+    title: 'Types of Machine Learning',
+    content: `There are three main types of machine learning: supervised learning, unsupervised learning, and reinforcement learning.
+
+Supervised learning uses labeled training data to learn the mapping between inputs and outputs. Examples include regression and classification problems.
+
+Unsupervised learning finds hidden patterns in unlabeled data. Clustering and dimensionality reduction are common unsupervised techniques.
+
+Reinforcement learning involves an agent learning to make decisions by interacting with an environment and receiving rewards or penalties.`,
+  },
+  {
+    id: '3',
+    title: 'Practical Applications',
+    content: `Machine learning has numerous real-world applications across various industries:
+
+In healthcare, ML algorithms help diagnose diseases, predict patient outcomes, and discover new drugs.
+
+In finance, machine learning powers fraud detection, algorithmic trading, and credit risk assessment.
+
+In retail, ML enables recommendation systems, demand forecasting, and customer segmentation.
+
+In transportation, machine learning optimizes routes, predicts maintenance needs, and powers autonomous vehicles.
+
+These applications demonstrate the transformative potential of machine learning technology.`,
+  },
+  {
+    id: '4',
+    title: 'Challenges and Future',
+    content: `Despite its promise, machine learning faces several challenges:
+
+Data quality and availability are often limiting factors in developing robust models.
+
+Algorithmic bias can lead to unfair or discriminatory outcomes if not carefully managed.
+
+Interpretability remains a challenge, especially with complex deep learning models.
+
+Security and privacy concerns arise when handling sensitive data.
+
+The future of machine learning will likely see advances in few-shot learning, federated learning, and more interpretable AI systems that can better serve human needs.`,
+  },
+];
+
 export function PDFUploader() {
   const [isDragging, setIsDragging] = useState(false);
   const [step, setStep] = useState<Step>('idle');
@@ -57,31 +110,25 @@ export function PDFUploader() {
       await new Promise((r) => setTimeout(r, 300));
 
       setStep('extracting');
-      
-      // Send file to backend for processing
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('pdfId', pdfId);
+      await new Promise((r) => setTimeout(r, 600));
 
       setStep('saving');
       const response = await fetch('/api/process-pdf', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pdfId,
+          title: file.name.replace(/\.pdf$/i, ''),
+          fileName: file.name,
+          content: DEMO_CHAPTERS.map(c => c.content).join('\n\n'),
+          chapters: DEMO_CHAPTERS,
+          pageCount: 20,
+        }),
       });
 
       if (!response.ok) {
-        const text = await response.text();
-        let errorMsg = `Server error ${response.status}`;
-        try {
-          const errorData = JSON.parse(text);
-          errorMsg = errorData.error || errorMsg;
-        } catch {
-          errorMsg = text.slice(0, 100) || errorMsg;
-        }
-        throw new Error(errorMsg);
+        throw new Error('Failed to save PDF');
       }
-
-      await response.json();
 
       setStep('done');
       await new Promise((r) => setTimeout(r, 500));
