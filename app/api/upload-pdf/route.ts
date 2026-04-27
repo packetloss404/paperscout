@@ -1,38 +1,48 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { put, get } from '@vercel/blob';
-import { db } from '@/lib/db';
 
 export const maxDuration = 300;
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('[v0] upload-pdf POST called');
-    const formData = await request.formData();
+    console.log('[v0] START');
+    
+    // Step 1: Parse form data
+    let formData;
+    try {
+      formData = await request.formData();
+      console.log('[v0] FormData parsed');
+    } catch (e) {
+      console.error('[v0] FormData parse error:', e);
+      return NextResponse.json({ error: 'Failed to parse form data' }, { status: 400 });
+    }
+
     const file = formData.get('file') as File;
     const pdfId = formData.get('pdfId') as string;
-
     console.log('[v0] file:', file?.name, 'pdfId:', pdfId);
 
     if (!file || !pdfId) {
-      console.log('[v0] Missing file or pdfId');
       return NextResponse.json({ error: 'Missing file or pdfId' }, { status: 400 });
     }
 
+    // Step 2: Import and upload to Blob
+    let blob;
     try {
-      console.log('[v0] Uploading to Blob...');
-      const blob = await put(`pdfs/${Date.now()}-${file.name}`, file, { access: 'private' });
-      console.log('[v0] Uploaded successfully:', blob.pathname);
+      console.log('[v0] Importing blob module');
+      const { put } = await import('@vercel/blob');
+      console.log('[v0] Uploading file to blob...');
+      blob = await put(`pdfs/${Date.now()}-${file.name}`, file, { access: 'private' });
+      console.log('[v0] Upload complete:', blob.pathname);
+    } catch (e) {
+      console.error('[v0] Blob upload error:', e);
+      return NextResponse.json({ error: `Blob error: ${e instanceof Error ? e.message : String(e)}` }, { status: 500 });
+    }
 
-      // For now, just save with extracted filename - skip pdf-parse for testing
-      const chapters = [
-        {
-          id: '1',
-          title: 'Document Content',
-          content: 'PDF content will be extracted here',
-        },
-      ];
-
-      console.log('[v0] Saving to DB...');
+    // Step 3: Import and save to database
+    try {
+      console.log('[v0] Importing db module');
+      const { db } = await import('@/lib/db');
+      console.log('[v0] Saving to database');
+      
       await db.savePDF({
         id: pdfId,
         title: file.name.replace(/\.pdf$/i, ''),
@@ -40,20 +50,27 @@ export async function POST(request: NextRequest) {
         pageCount: 1,
         dateAdded: new Date(),
         content: 'PDF uploaded successfully',
-        chapters,
+        chapters: [
+          {
+            id: '1',
+            title: 'Document',
+            content: 'PDF content will be extracted here',
+          },
+        ],
         status: 'complete',
       });
-
-      console.log('[v0] Success!');
-      return NextResponse.json({ pdfId, status: 'complete' });
-    } catch (innerError) {
-      console.error('[v0] Inner error:', innerError);
-      throw innerError;
+      console.log('[v0] Saved to database');
+    } catch (e) {
+      console.error('[v0] Database error:', e);
+      return NextResponse.json({ error: `Database error: ${e instanceof Error ? e.message : String(e)}` }, { status: 500 });
     }
+
+    // Step 4: Return success
+    console.log('[v0] SUCCESS');
+    return NextResponse.json({ pdfId, status: 'complete' });
   } catch (error) {
-    console.error('[v0] Error:', error);
-    const msg = error instanceof Error ? error.message : 'Failed to process PDF';
-    console.log('[v0] Returning error response:', msg);
+    console.error('[v0] Unhandled error:', error);
+    const msg = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
