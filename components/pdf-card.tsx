@@ -31,24 +31,32 @@ export function PDFCard({ pdf, onDelete }: PDFCardProps) {
 
   return (
     <Link href={`/book/${pdf.id}`}>
-      <div className="bg-card border border-border rounded-lg p-4 hover:shadow-lg transition-shadow cursor-pointer h-full flex flex-col">
-        <div className="flex items-start gap-3 mb-3">
-          <FileText className="w-8 h-8 text-primary flex-shrink-0 mt-1" />
+      <div className="bg-card border border-border rounded-xl p-6 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer h-full flex flex-col group">
+        <div className="flex items-start gap-4 mb-4">
+          <div className="p-2.5 bg-primary/10 group-hover:bg-primary/15 rounded-lg transition-colors">
+            <FileText className="w-6 h-6 text-primary" />
+          </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-foreground truncate">
+            <h3 className="font-semibold text-foreground truncate group-hover:text-primary transition-colors">
               {pdf.title}
             </h3>
           </div>
         </div>
 
-        <div className="flex-1 space-y-2 text-sm text-muted-foreground">
-          <p>{pdf.pageCount} pages</p>
-          <p>{formatDate(new Date(pdf.dateAdded))}</p>
+        <div className="flex-1 space-y-2.5 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium">📄</span>
+            <span>{pdf.pageCount} pages</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium">📅</span>
+            <span>{formatDate(new Date(pdf.dateAdded))}</span>
+          </div>
         </div>
 
-        <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
-          <span className="text-xs font-medium text-primary">
-            {pdf.status === 'complete' ? 'Ready' : 'Processing'}
+        <div className="mt-6 pt-6 border-t border-border flex items-center justify-between">
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary">
+            {pdf.status === 'complete' ? '✓ Ready' : 'Processing...'}
           </span>
           <button
             onClick={(e) => {
@@ -56,9 +64,9 @@ export function PDFCard({ pdf, onDelete }: PDFCardProps) {
               handleDelete();
             }}
             disabled={isDeleting}
-            className="p-2 hover:bg-muted rounded transition-colors text-destructive hover:bg-destructive/10"
+            className="p-2 hover:bg-destructive/10 rounded-lg transition-colors text-destructive/60 hover:text-destructive group/delete"
           >
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="w-4 h-4 group-hover/delete:scale-110 transition-transform" />
           </button>
         </div>
       </div>
