@@ -56,7 +56,6 @@ export function PDFUploader() {
       // Step 1: Upload directly to Blob (bypasses serverless function limit)
       setStep('uploading');
       const blob = await upload(file.name, file, {
-        access: 'public',
         handleUploadUrl: '/api/upload-token',
       });
 
