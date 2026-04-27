@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import pdfParse from 'pdf-parse';
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.js';
 
 export const maxDuration = 60;
 
@@ -21,10 +21,27 @@ export async function POST(request: NextRequest) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Extract PDF content using pdf-parse
-    const pdfData = await pdfParse(buffer);
-    const fullText = pdfData.text;
-    const pageCount = pdfData.numpages;
+    // Extract PDF content using pdfjs
+    const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+    const pageCount = pdf.numPages;
+    
+    let fullText = '';
+    const maxPages = Math.min(pageCount, 50);
+    
+    for (let i = 1; i <= maxPages; i++) {
+      try {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items
+          .filter((item: any) => 'str' in item)
+          .map((item: any) => item.str)
+          .join(' ');
+        fullText += pageText + '\n\n';
+      } catch (pageError) {
+        console.warn(`Error extracting page ${i}:`, pageError);
+        continue;
+      }
+    }
 
     // Parse chapters from extracted text
     const chapters = parseChapters(fullText);
@@ -48,7 +65,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('[v0] PDF processing error:', error);
     return NextResponse.json(
-      { error: 'Failed to process PDF' },
+      { error: error instanceof Error ? error.message : 'Failed to process PDF' },
       { status: 500 }
     );
   }
