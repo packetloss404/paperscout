@@ -4,6 +4,7 @@ import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Upload, Loader2, CheckCircle2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
+import { extractPDFContent } from '@/lib/pdf-parser';
 
 type Step = 'idle' | 'reading' | 'extracting' | 'saving' | 'done' | 'error';
 
@@ -15,113 +16,6 @@ const STEP_LABELS: Record<Step, string> = {
   done: 'Done!',
   error: 'Something went wrong',
 };
-
-const DEMO_CHAPTERS = [
-  {
-    id: '1',
-    title: 'Introduction',
-    content: `# Introduction
-
-This is a sample research paper demonstrating the PDF Textbook application. The paper covers fundamental concepts in distributed systems and their practical applications.
-
-## Overview
-
-Distributed systems form the backbone of modern cloud computing infrastructure. They enable fault tolerance, scalability, and high availability across geographically dispersed data centers.
-
-The following sections explore key architectural patterns and implementation strategies used in production systems handling millions of requests per second.`,
-  },
-  {
-    id: '2',
-    title: 'System Architecture',
-    content: `# System Architecture
-
-## Core Components
-
-Modern distributed systems typically consist of:
-
-1. **Load Balancers** - Distribute incoming traffic across multiple servers
-2. **Service Layer** - Process business logic and handle requests
-3. **Data Layer** - Persist and retrieve application state
-4. **Cache Layer** - Improve performance through data locality
-
-## Scalability Considerations
-
-As system load increases, each component must scale independently. Horizontal scaling involves adding more machines, while vertical scaling means upgrading existing hardware.
-
-The equation for throughput is:
-
-$$\\text{Throughput} = \\text{Requests per Second} \\times \\text{Average Response Time}$$
-
-This relationship shows the inverse trade-off between performance and latency.`,
-  },
-  {
-    id: '3',
-    title: 'Fault Tolerance',
-    content: `# Fault Tolerance Strategies
-
-## Replication
-
-Data replication across multiple nodes ensures that system failures don't result in data loss. Common approaches include:
-
-- **Master-Slave Replication** - One primary node handles writes, slaves handle reads
-- **Multi-Master Replication** - Multiple nodes can accept writes
-- **Quorum-Based** - Decisions require majority agreement
-
-## Consensus Algorithms
-
-Raft and Paxos are fundamental consensus algorithms that help distributed systems agree on state despite failures.
-
-The probability of system availability with $$n$$ replicas and failure rate $$p$$ is approximately:
-
-$$A = 1 - p^{\\lceil n/2 \\rceil + 1}$$
-
-This shows that odd numbers of replicas are optimal for fault tolerance.`,
-  },
-  {
-    id: '4',
-    title: 'Performance Optimization',
-    content: `# Performance Optimization Techniques
-
-## Caching Strategies
-
-Effective caching can reduce database load by 10x or more:
-
-- **LRU Cache** - Evict least recently used items
-- **TTL-Based** - Expire entries after a time period
-- **Write-Through** - Update cache and database together
-- **Write-Back** - Update cache immediately, database asynchronously
-
-## Indexing
-
-Database indexes use B-tree structures that allow $$O(\\log n)$$ lookups instead of $$O(n)$$ full scans.
-
-## Sharding
-
-Horizontal partitioning of data improves query performance:
-
-$$\\text{Shard Key} \\rightarrow \\text{Consistent Hash} \\rightarrow \\text{Target Node}$$
-
-This ensures uniform distribution and enables adding nodes without resharding all data.`,
-  },
-  {
-    id: '5',
-    title: 'Conclusion',
-    content: `# Conclusion
-
-Distributed systems require careful consideration of trade-offs between consistency, availability, and partition tolerance (CAP theorem).
-
-## Key Takeaways
-
-1. No single approach works for all use cases
-2. Monitoring and observability are critical
-3. Failure scenarios must be tested proactively
-4. Performance optimization should be data-driven
-
-## Future Directions
-
-Emerging technologies like edge computing and serverless architectures are reshaping how distributed systems are designed and deployed.`,
-  },
-];
 
 export function PDFUploader() {
   const [isDragging, setIsDragging] = useState(false);
@@ -164,7 +58,7 @@ export function PDFUploader() {
       await new Promise((r) => setTimeout(r, 300));
 
       setStep('extracting');
-      await new Promise((r) => setTimeout(r, 800));
+      const extracted = await extractPDFContent(file);
 
       setStep('saving');
       const response = await fetch('/api/process-pdf', {
@@ -174,9 +68,9 @@ export function PDFUploader() {
           pdfId,
           title: file.name.replace(/\.pdf$/i, ''),
           fileName: file.name,
-          content: DEMO_CHAPTERS.map(c => c.content).join('\n\n'),
-          chapters: DEMO_CHAPTERS,
-          pageCount: 50,
+          content: extracted.text,
+          chapters: extracted.chapters,
+          pageCount: extracted.pageCount,
         }),
       });
 

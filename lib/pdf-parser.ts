@@ -1,10 +1,9 @@
 import * as pdfjsLib from 'pdfjs-dist';
 import { Chapter } from './db';
 
-// Configure worker for browser environment
+// Configure worker using unpkg CDN for reliability
 if (typeof window !== 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
-  console.log('[v0] Worker source set to:', pdfjsLib.GlobalWorkerOptions.workerSrc);
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
 }
 
 export interface ExtractedContent {
@@ -15,44 +14,33 @@ export interface ExtractedContent {
 
 export async function extractPDFContent(file: File): Promise<ExtractedContent> {
   try {
-    console.log('[v0] PDF extraction starting');
     const arrayBuffer = await file.arrayBuffer();
-    console.log('[v0] File read, size:', arrayBuffer.byteLength);
     
-    console.log('[v0] Loading PDF document...');
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    console.log('[v0] PDF loaded, pages:', pdf.numPages);
     const pageCount = pdf.numPages;
 
     let fullText = '';
 
-    // Extract text from pages (limit to first 20 pages for performance)
-    const maxPages = Math.min(pageCount, 20);
-    console.log('[v0] Extracting text from', maxPages, 'pages');
+    // Extract text from pages (limit to first 50 pages)
+    const maxPages = Math.min(pageCount, 50);
     
     for (let i = 1; i <= maxPages; i++) {
       try {
-        console.log('[v0] Getting page', i);
         const page = await pdf.getPage(i);
-        console.log('[v0] Got page', i, ', extracting text');
         const textContent = await page.getTextContent();
         const pageText = textContent.items
           .filter((item: any) => 'str' in item)
           .map((item: any) => item.str)
           .join(' ');
         fullText += pageText + '\n\n';
-        console.log('[v0] Extracted page', i, ', text length:', pageText.length);
       } catch (pageError) {
-        console.warn(`[v0] Error extracting page ${i}:`, pageError);
+        console.warn(`Error extracting page ${i}:`, pageError);
         continue;
       }
     }
 
-    console.log('[v0] Text extraction complete, total length:', fullText.length);
-
     // Parse chapters from content
     const chapters = parseChapters(fullText);
-    console.log('[v0] Chapters parsed:', chapters.length);
 
     return {
       text: fullText,
@@ -60,7 +48,7 @@ export async function extractPDFContent(file: File): Promise<ExtractedContent> {
       pageCount,
     };
   } catch (error) {
-    console.error('[v0] PDF extraction failed:', error);
+    console.error('PDF extraction failed:', error);
     throw error;
   }
 }
