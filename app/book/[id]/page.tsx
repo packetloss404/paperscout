@@ -1,22 +1,23 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { PDF, Chapter, Annotation } from '@/lib/db';
+import { BookHeader } from '@/components/book-header';
 import { ChapterNav } from '@/components/chapter-nav';
 import { MarkdownRenderer } from '@/components/markdown-renderer';
-import { MarginAnnotations } from '@/components/margin-annotations';
-import { ChatButton } from '@/components/chat-button';
-import { ArrowLeft, Menu, X, BookOpen } from 'lucide-react';
+import { AITutorPanel } from '@/components/ai-tutor-panel';
+import { LeftMargin } from '@/components/left-margin';
+import { BookOpen } from 'lucide-react';
 
 export default function BookPage() {
   const params = useParams();
   const router = useRouter();
   const pdfId = params.id as string;
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const [pdf, setPdf] = useState<PDF | null>(null);
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedParagraphIndex, setSelectedParagraphIndex] = useState<number | null>(null);
@@ -42,12 +43,10 @@ export default function BookPage() {
         const data: PDF = await response.json();
         setPdf(data);
         if (data.status !== 'complete' && attempt < 30) {
-          // Poll until complete, backing off slightly
           setTimeout(() => loadPDF(attempt + 1), 600);
           return;
         }
       } else if (response.status === 404 && attempt < 30) {
-        // Not saved yet — keep polling
         setTimeout(() => loadPDF(attempt + 1), 600);
         return;
       }
@@ -74,16 +73,16 @@ export default function BookPage() {
     }
   };
 
-  const handleAddAnnotation = async (text: string, type: 'highlight' | 'annotation') => {
+  const handleAddAnnotation = async (
+    paragraphIndex: number,
+    type: 'highlight' | 'annotation',
+    text: string
+  ) => {
     try {
       const response = await fetch(`/api/annotations/${pdfId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          paragraphIndex: selectedParagraphIndex || 0,
-          type,
-          text,
-        }),
+        body: JSON.stringify({ paragraphIndex, type, text }),
       });
 
       if (response.ok) {
@@ -113,19 +112,19 @@ export default function BookPage() {
 
   if (stillLoading) {
     return (
-      <main className="min-h-screen bg-background flex items-center justify-center">
+      <main className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center space-y-6">
           <div className="flex justify-center">
             <div className="relative w-16 h-16">
-              <div className="absolute inset-0 bg-primary/20 rounded-full blur-lg animate-pulse" />
-              <div className="absolute inset-0 animate-spin border-3 border-primary border-t-transparent rounded-full" />
+              <div className="absolute inset-0 bg-indigo-100 rounded-full blur-lg animate-pulse" />
+              <div className="absolute inset-0 animate-spin border-4 border-indigo-200 border-t-indigo-600 rounded-full" />
             </div>
           </div>
           <div className="space-y-2">
-            <p className="text-lg font-semibold text-foreground">
-              {!pdf ? 'Loading book...' : 'Finalising chapters...'}
+            <p className="text-lg font-semibold text-gray-900">
+              {!pdf ? 'Loading book...' : 'Processing chapters...'}
             </p>
-            <p className="text-sm text-muted-foreground">This only takes a moment</p>
+            <p className="text-sm text-gray-600">This will only take a moment</p>
           </div>
         </div>
       </main>
@@ -134,20 +133,20 @@ export default function BookPage() {
 
   if (!pdf.chapters || pdf.chapters.length === 0) {
     return (
-      <main className="min-h-screen bg-background flex items-center justify-center px-4">
+      <main className="min-h-screen bg-white flex items-center justify-center px-4">
         <div className="text-center space-y-6 max-w-md">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-primary/10 rounded-2xl">
-            <BookOpen className="w-8 h-8 text-primary" />
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-100 rounded-2xl">
+            <BookOpen className="w-8 h-8 text-indigo-600" />
           </div>
           <div className="space-y-2">
-            <p className="text-lg font-semibold text-foreground">No readable content</p>
-            <p className="text-sm text-muted-foreground">
-              This PDF doesn&apos;t contain extractable text
+            <p className="text-lg font-semibold text-gray-900">No readable content</p>
+            <p className="text-sm text-gray-600">
+              This PDF doesn&apos;t contain extractable text.
             </p>
           </div>
           <button
             onClick={() => router.push('/')}
-            className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-all hover:shadow-lg"
+            className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors"
           >
             Back to Library
           </button>
@@ -156,54 +155,35 @@ export default function BookPage() {
     );
   }
 
+  const currentChapterIndex = selectedChapter
+    ? pdf.chapters.findIndex((c) => c.id === selectedChapter.id)
+    : 0;
+
   return (
-    <main className="min-h-screen bg-background flex flex-col">
-      {/* Top Bar */}
-      <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-30 shadow-sm">
-        <div className="flex items-center justify-between px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => router.push('/')}
-              className="p-2.5 hover:bg-muted rounded-lg transition-all text-muted-foreground hover:text-foreground hover:shadow-sm"
-              title="Back to library"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
+    <main className="min-h-screen bg-white flex flex-col">
+      <BookHeader
+        title={pdf.title}
+        pageCount={pdf.pageCount}
+        currentChapterIndex={currentChapterIndex}
+        totalChapters={pdf.chapters.length}
+      />
 
-            <div className="min-w-0">
-              <h1 className="text-lg font-semibold text-foreground truncate">
-                {pdf.title}
-              </h1>
-              <p className="text-xs text-muted-foreground">
-                {pdf.pageCount} pages
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="p-2.5 hover:bg-muted rounded-lg transition-all lg:hidden text-muted-foreground hover:text-foreground"
-          >
-            {isSidebarOpen ? (
-              <X className="w-5 h-5" />
-            ) : (
-              <Menu className="w-5 h-5" />
-            )}
-          </button>
-        </div>
-      </header>
-
-      {/* Main Content */}
+      {/* Main Reading Area */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
-        <aside
-          className={`${
-            isSidebarOpen ? 'block' : 'hidden'
-          } lg:block w-full lg:w-72 border-r border-border bg-card/50 overflow-y-auto flex-shrink-0`}
-        >
-          <div className="p-6 sticky top-0 bg-card/50 backdrop-blur-sm border-b border-border">
-            <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
-              Chapters
+        {/* Left Margin */}
+        <LeftMargin
+          selectedParagraphIndex={selectedParagraphIndex}
+          annotations={annotations}
+          onAddAnnotation={handleAddAnnotation}
+          onDeleteAnnotation={handleDeleteAnnotation}
+          contentRef={contentRef}
+        />
+
+        {/* Sidebar - 20% width */}
+        <aside className="w-64 border-r border-gray-200 bg-gray-50 overflow-y-auto flex-shrink-0">
+          <div className="p-5 sticky top-0 bg-white border-b border-gray-200 z-20">
+            <h2 className="text-xs font-bold text-gray-900 uppercase tracking-widest">
+              Contents
             </h2>
           </div>
           <nav className="p-4">
@@ -211,85 +191,64 @@ export default function BookPage() {
               chapters={pdf.chapters}
               onSelectChapter={(chapter) => {
                 setSelectedChapter(chapter);
-                setIsSidebarOpen(false);
               }}
               isCollapsed={false}
             />
           </nav>
         </aside>
 
-        {/* Content Area */}
-        <div className="flex-1 overflow-y-auto bg-gradient-to-br from-background via-background to-primary/2">
-          <article className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
+        {/* Main Content - 80% width */}
+        <div className="flex-1 overflow-y-auto bg-gradient-to-br from-white via-white to-gray-50">
+          <article
+            ref={contentRef}
+            className="max-w-4xl mx-auto px-12 py-16 prose-container"
+            onClick={(e) => {
+              const target = e.target as HTMLElement;
+              if (target.tagName === 'P') {
+                const paragraphs = contentRef.current?.querySelectorAll('p') || [];
+                const index = Array.from(paragraphs).indexOf(target);
+                setSelectedParagraphIndex(index);
+              }
+            }}
+          >
             {selectedChapter && (
               <>
-                <header className="mb-12 pb-8 border-b border-border/50">
-                  <div className="flex items-center gap-2 text-sm text-primary font-medium mb-4">
-                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 text-primary font-bold">
-                      {pdf.chapters.indexOf(selectedChapter) + 1}
+                {/* Chapter Header */}
+                <header className="mb-12 pb-10 border-b-2 border-gray-200">
+                  <div className="flex items-center gap-3 mb-6">
+                    <span className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-indigo-100 font-bold text-indigo-600">
+                      {currentChapterIndex + 1}
                     </span>
-                    <span>of {pdf.chapters.length} chapters</span>
+                    <div>
+                      <p className="text-xs font-semibold text-indigo-600 uppercase tracking-wide">
+                        Chapter {currentChapterIndex + 1}
+                      </p>
+                      <p className="text-xs text-gray-600">
+                        of {pdf.chapters.length}
+                      </p>
+                    </div>
                   </div>
-                  <h1 className="text-2xl md:text-3xl font-bold text-foreground leading-snug">
+                  <h1 className="text-4xl font-bold text-gray-900 leading-tight">
                     {selectedChapter.title}
                   </h1>
                 </header>
 
-                <div
-                  onClick={(e) => {
-                    const target = e.target as HTMLElement;
-                    if (target.tagName === 'P') {
-                      const paragraphs = document.querySelectorAll('article p');
-                      const index = Array.from(paragraphs).indexOf(target);
-                      setSelectedParagraphIndex(index);
-                    }
-                  }}
-                  className="prose-container"
-                >
+                {/* Content */}
+                <div className="space-y-6 leading-relaxed">
                   <MarkdownRenderer content={selectedChapter.content} />
                 </div>
 
-                {/* Annotations Section */}
-                {annotations.length > 0 && (
-                  <section className="mt-16 pt-10 border-t border-border/50">
-                    <h2 className="text-2xl font-bold text-foreground mb-6 flex items-center gap-2">
-                      <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10">
-                        ✓
-                      </span>
-                      Notes & Highlights
-                    </h2>
-                    <div className="space-y-4">
-                      {annotations
-                        .filter((a) => a.type === 'annotation')
-                        .map((annotation) => (
-                          <div
-                            key={annotation.id}
-                            className="group bg-gradient-to-r from-primary/5 to-accent/5 border border-primary/20 rounded-xl p-5 hover:border-primary/40 hover:shadow-md transition-all"
-                          >
-                            <p className="text-sm text-foreground leading-relaxed">
-                              {annotation.text}
-                            </p>
-                            <button
-                              onClick={() =>
-                                handleDeleteAnnotation(annotation.id)
-                              }
-                              className="mt-3 text-xs font-medium text-destructive/70 hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
-                            >
-                              Remove note
-                            </button>
-                          </div>
-                        ))}
-                    </div>
-                  </section>
-                )}
+                {/* Bottom spacing */}
+                <div className="h-32" />
               </>
             )}
           </article>
         </div>
       </div>
 
-      {/* AI Chat Button */}
-      <ChatButton pdfId={pdfId} pdfTitle={pdf.title} />
+      {/* AI Tutor Panel - Right margin */}
+      <AITutorPanel pdfId={pdfId} pdfTitle={pdf.title} />
     </main>
   );
 }
+
