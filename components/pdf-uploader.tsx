@@ -4,7 +4,6 @@ import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Upload, Loader2, CheckCircle2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
-import { extractPDFContent } from '@/lib/pdf-parser';
 
 type Step = 'idle' | 'reading' | 'extracting' | 'saving' | 'done' | 'error';
 
@@ -58,24 +57,21 @@ export function PDFUploader() {
       await new Promise((r) => setTimeout(r, 300));
 
       setStep('extracting');
-      const extracted = await extractPDFContent(file);
+      
+      // Send file to backend for processing
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('pdfId', pdfId);
 
       setStep('saving');
       const response = await fetch('/api/process-pdf', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          pdfId,
-          title: file.name.replace(/\.pdf$/i, ''),
-          fileName: file.name,
-          content: extracted.text,
-          chapters: extracted.chapters,
-          pageCount: extracted.pageCount,
-        }),
+        body: formData,
       });
 
       if (!response.ok) {
-        throw new Error(`Server error ${response.status}`);
+        const error = await response.json();
+        throw new Error(error.error || `Server error ${response.status}`);
       }
 
       setStep('done');
