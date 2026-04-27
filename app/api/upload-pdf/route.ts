@@ -1,24 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import Busboy from 'busboy';
+import { Readable } from 'stream';
 
 export const maxDuration = 300;
 
 export async function POST(request: NextRequest) {
   try {
-    const formData = await request.formData();
-    const file = formData.get('file') as File;
-    const pdfId = formData.get('pdfId') as string;
+    const bb = Busboy({ headers: request.headers as any });
+    let file: Buffer | null = null;
+    let pdfId: string | null = null;
+    let fileName: string | null = null;
+
+    await new Promise<void>((resolve, reject) => {
+      bb.on('file', (fieldname: string, stream: any, info: any) => {
+        if (fieldname === 'file') {
+          fileName = info.filename;
+          const chunks: Buffer[] = [];
+          stream.on('data', (chunk: Buffer) => chunks.push(chunk));
+          stream.on('end', () => {
+            file = Buffer.concat(chunks);
+          });
+          stream.on('error', reject);
+        }
+      });
+
+      bb.on('field', (fieldname: string, value: string) => {
+        if (fieldname === 'pdfId') {
+          pdfId = value;
+        }
+      });
+
+      bb.on('finish', resolve);
+      bb.on('error', reject);
+
+      // Pipe request body to busboy
+      if (request.body) {
+        Readable.from(request.body as any).pipe(bb);
+      }
+    });
 
     if (!file || !pdfId) {
       return NextResponse.json({ error: 'Missing file or pdfId' }, { status: 400 });
     }
 
-    // Convert file to buffer
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
     // Basic text extraction: look for printable ASCII characters
-    const bytes = new Uint8Array(buffer);
+    const bytes = new Uint8Array(file);
     let text = '';
     for (let i = 0; i < bytes.length; i++) {
       const byte = bytes[i];
@@ -47,9 +74,9 @@ export async function POST(request: NextRequest) {
     // Save to database
     await db.savePDF({
       id: pdfId,
-      title: file.name.replace(/\.pdf$/i, ''),
-      fileName: file.name,
-      pageCount: Math.ceil(buffer.length / 1024),
+      title: (fileName || 'document').replace(/\.pdf$/i, ''),
+      fileName: fileName || 'document.pdf',
+      pageCount: Math.ceil(file.length / 1024),
       dateAdded: new Date(),
       content: cleanText,
       chapters,
