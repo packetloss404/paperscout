@@ -3,13 +3,18 @@
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Upload, Loader2, CheckCircle2 } from 'lucide-react';
+import * as pdfjsLib from 'pdfjs-dist';
 import { v4 as uuidv4 } from 'uuid';
 
-type Step = 'idle' | 'uploading' | 'done' | 'error';
+// Set up the worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
+type Step = 'idle' | 'extracting' | 'uploading' | 'done' | 'error';
 
 const STEP_LABELS: Record<Step, string> = {
   idle: 'Drag & drop your PDF here',
-  uploading: 'Processing PDF...',
+  extracting: 'Extracting text from PDF...',
+  uploading: 'Uploading...',
   done: 'Done!',
   error: 'Something went wrong',
 };
@@ -40,6 +45,24 @@ export function PDFUploader() {
     if (e.target.files && e.target.files.length > 0) handleFile(e.target.files[0]);
   };
 
+  const extractPDFText = async (file: File): Promise<{ text: string; pageCount: number }> => {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let fullText = '';
+    
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items.map((item: any) => item.str).join(' ');
+      fullText += pageText + '\n\n';
+    }
+    
+    return {
+      text: fullText,
+      pageCount: pdf.numPages,
+    };
+  };
+
   const handleFile = async (file: File) => {
     if (!file.type.includes('pdf')) {
       setErrorMsg('Please upload a PDF file.');
@@ -51,15 +74,21 @@ export function PDFUploader() {
     setErrorMsg('');
 
     try {
+      // Step 1: Extract text from PDF client-side
+      setStep('extracting');
+      const { text, pageCount } = await extractPDFText(file);
+
+      // Step 2: Upload extracted text to server
       setStep('uploading');
-
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('pdfId', pdfId);
-
       const response = await fetch('/api/upload-pdf', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pdfId,
+          fileName: file.name,
+          pageCount,
+          extractedText: text,
+        }),
       });
 
       if (!response.ok) {
@@ -122,8 +151,8 @@ export function PDFUploader() {
 
         {isProcessing && (
           <div className="flex items-center gap-2 mt-1">
-            {(['uploading', 'done'] as Step[]).map((s, i) => {
-              const steps: Step[] = ['uploading', 'done'];
+            {(['extracting', 'uploading', 'done'] as Step[]).map((s, i) => {
+              const steps: Step[] = ['extracting', 'uploading', 'done'];
               const currentIdx = steps.indexOf(step);
               const thisIdx = steps.indexOf(s);
               const done = thisIdx < currentIdx;
@@ -135,7 +164,7 @@ export function PDFUploader() {
                       done ? 'bg-primary' : active ? 'bg-primary animate-pulse' : 'bg-border'
                     }`}
                   />
-                  {i < 1 && <div className="w-6 h-px bg-border" />}
+                  {i < 2 && <div className="w-6 h-px bg-border" />}
                 </div>
               );
             })}
