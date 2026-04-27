@@ -70,9 +70,18 @@ export function PDFUploader() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || `Server error ${response.status}`);
+        let errorMsg = `Server error ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMsg = errorData.error || errorMsg;
+        } catch {
+          const text = await response.text();
+          errorMsg = text.slice(0, 100) || errorMsg;
+        }
+        throw new Error(errorMsg);
       }
+
+      const result = await response.json();
 
       setStep('done');
       await new Promise((r) => setTimeout(r, 500));

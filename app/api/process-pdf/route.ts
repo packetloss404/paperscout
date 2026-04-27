@@ -5,36 +5,35 @@ export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('[v0] PDF upload started');
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const pdfId = formData.get('pdfId') as string;
 
+    console.log('[v0] File:', file?.name, 'PdfId:', pdfId);
+
     if (!file || !pdfId) {
+      console.log('[v0] Missing file or pdfId');
       return NextResponse.json(
         { error: 'Missing file or PDF ID' },
         { status: 400 }
       );
     }
 
-    // For now, extract basic text from PDF by treating it as binary
-    // This is a simplified approach - proper PDFs would need pdfjs
-    // But this allows the app to work end-to-end
+    console.log('[v0] Converting to buffer');
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     
-    // Extract text-like content from PDF binary
-    // PDFs contain text streams that we can partially extract
+    console.log('[v0] Extracting text from', buffer.length, 'bytes');
     let extractedText = '';
     const dataView = new Uint8Array(buffer);
     let textChunk = '';
     
     for (let i = 0; i < dataView.length; i++) {
       const byte = dataView[i];
-      // Look for printable ASCII in the PDF binary
       if (byte >= 32 && byte <= 126) {
         textChunk += String.fromCharCode(byte);
       } else if (textChunk.length > 3) {
-        // Only keep chunks longer than 3 chars
         extractedText += ' ' + textChunk;
         textChunk = '';
       } else {
@@ -42,35 +41,38 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Clean up extracted text
     const fullText = extractedText
       .replace(/\s+/g, ' ')
       .trim()
-      .slice(0, 50000); // Limit to 50k chars
+      .slice(0, 50000);
 
-    // Parse chapters from extracted text
+    console.log('[v0] Extracted text length:', fullText.length);
+
     const chapters = parseChapters(fullText || `PDF Content: ${file.name}`);
+    console.log('[v0] Parsed chapters:', chapters.length);
 
-    // Save to database
+    console.log('[v0] Saving to database');
     await db.savePDF({
       id: pdfId,
       title: file.name.replace(/\.pdf$/i, ''),
       fileName: file.name,
-      pageCount: Math.ceil(buffer.length / 1024), // Rough estimate
+      pageCount: Math.ceil(buffer.length / 1024),
       dateAdded: new Date(),
       content: fullText,
       chapters,
       status: 'complete',
     });
 
+    console.log('[v0] PDF saved successfully');
     return NextResponse.json({
       pdfId,
       status: 'complete',
     });
   } catch (error) {
     console.error('[v0] PDF processing error:', error);
+    const errorMsg = error instanceof Error ? error.message : 'Failed to process PDF';
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to process PDF' },
+      { error: errorMsg },
       { status: 500 }
     );
   }
@@ -82,7 +84,6 @@ function parseChapters(text: string) {
   let currentChapter = null;
   let contentBuffer = [];
 
-  // Split into sections every 50 words or so
   for (let i = 0; i < lines.length; i++) {
     if (contentBuffer.length > 50) {
       if (currentChapter) {
@@ -105,7 +106,6 @@ function parseChapters(text: string) {
     chapters.push(currentChapter);
   }
 
-  // Fallback: if no chapters, create one
   if (chapters.length === 0) {
     chapters.push({
       id: Math.random().toString(36).substr(2, 9),
