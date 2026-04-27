@@ -3,14 +3,6 @@ import { db } from '@/lib/db';
 
 export const maxDuration = 300;
 
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '50mb',
-    },
-  },
-};
-
 export async function POST(request: NextRequest) {
   try {
     console.log('[v0] PDF upload started');
@@ -18,13 +10,21 @@ export async function POST(request: NextRequest) {
     const file = formData.get('file') as File;
     const pdfId = formData.get('pdfId') as string;
 
-    console.log('[v0] File:', file?.name, 'PdfId:', pdfId);
+    console.log('[v0] File:', file?.name, 'Size:', file?.size, 'PdfId:', pdfId);
 
     if (!file || !pdfId) {
       console.log('[v0] Missing file or pdfId');
       return NextResponse.json(
         { error: 'Missing file or PDF ID' },
         { status: 400 }
+      );
+    }
+
+    // Check file size - limit to 10MB for safety
+    if (file.size > 10 * 1024 * 1024) {
+      return NextResponse.json(
+        { error: 'PDF too large. Maximum size is 10MB.' },
+        { status: 413 }
       );
     }
 
