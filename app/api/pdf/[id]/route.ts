@@ -5,7 +5,9 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  console.log('[v0] GET /api/pdf/:id', params.id);
   const pdf = await db.getPDF(params.id);
+  console.log('[v0] PDF found:', !!pdf);
   if (!pdf) {
     return NextResponse.json({ error: 'PDF not found' }, { status: 404 });
   }

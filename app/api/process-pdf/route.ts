@@ -8,6 +8,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { pdfId, title, fileName, content, chapters, pageCount } = body;
 
+    console.log('[v0] POST /api/process-pdf', { pdfId, title, chaptersCount: chapters?.length });
+
     if (!pdfId || !title) {
       return NextResponse.json(
         { error: 'Missing required fields' },
@@ -26,6 +28,8 @@ export async function POST(request: NextRequest) {
       chapters: chapters || [],
       status: 'complete',
     });
+
+    console.log('[v0] PDF saved:', pdfId);
 
     return NextResponse.json({
       pdfId,
