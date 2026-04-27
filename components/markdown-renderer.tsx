@@ -24,20 +24,20 @@ export function MarkdownRenderer({
 
   return (
     <div
-      className="prose prose-sm max-w-none dark:prose-invert
-        prose-headings:font-semibold prose-headings:text-foreground prose-headings:mt-8 prose-headings:mb-4
+      className="prose prose-lg max-w-none dark:prose-invert
+        prose-headings:font-semibold prose-headings:text-foreground prose-headings:mt-10 prose-headings:mb-5
         prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg
-        prose-p:text-foreground prose-p:leading-relaxed
+        prose-p:text-foreground prose-p:leading-[1.8] prose-p:text-base prose-p:tracking-wide
         prose-a:text-primary prose-a:hover:underline prose-a:font-medium
         prose-code:bg-muted prose-code:text-foreground prose-code:px-2 prose-code:py-1 prose-code:rounded prose-code:text-sm
-        prose-pre:bg-muted prose-pre:border prose-pre:border-border prose-pre:rounded-lg prose-pre:overflow-x-auto
-        prose-blockquote:border-l-4 prose-blockquote:border-l-primary prose-blockquote:text-muted-foreground prose-blockquote:italic
+        prose-pre:bg-muted prose-pre:border prose-pre:border-border prose-pre:rounded-xl prose-pre:overflow-x-auto prose-pre:p-4
+        prose-blockquote:border-l-4 prose-blockquote:border-l-primary prose-blockquote:text-muted-foreground prose-blockquote:italic prose-blockquote:bg-muted/30 prose-blockquote:rounded-r-lg prose-blockquote:py-2 prose-blockquote:px-4
         prose-strong:font-semibold prose-strong:text-foreground
         prose-em:italic prose-em:text-foreground
-        prose-ol:list-decimal prose-ol:list-inside prose-ol:space-y-2
-        prose-ul:list-disc prose-ul:list-inside prose-ul:space-y-2
-        prose-li:text-foreground
-        prose-hr:border-border prose-hr:my-8
+        prose-ol:list-decimal prose-ol:list-inside prose-ol:space-y-3
+        prose-ul:list-disc prose-ul:list-inside prose-ul:space-y-3
+        prose-li:text-foreground prose-li:leading-relaxed
+        prose-hr:border-border prose-hr:my-10
         [&_.math-display]:overflow-x-auto [&_.math-display]:my-4
         [&_.math-inline]:mx-1
       "
@@ -57,7 +57,7 @@ export function MarkdownRenderer({
             <h3 className="text-xl font-bold mt-6 mb-3" {...props} />
           ),
           p: ({ node, ...props }) => (
-            <p className="my-5 leading-relaxed text-foreground/90" {...props} />
+            <p className="my-6 leading-[1.85] text-foreground/90 text-base tracking-wide" {...props} />
           ),
           li: ({ node, ...props }) => (
             <li className="my-2 ml-6 text-foreground/90" {...props} />

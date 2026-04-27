@@ -15,15 +15,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Parse into chapters
-    const chapters = extractedText
-      .split('\n\n')
-      .slice(0, 20)
-      .map((section: string, idx: number) => ({
-        id: `ch-${idx}`,
-        title: section.split('\n')[0].slice(0, 60) || `Section ${idx + 1}`,
-        content: section,
-      }));
+    // Clean and format the extracted text
+    const cleanText = extractedText
+      .replace(/\s+/g, ' ')  // Normalize whitespace
+      .replace(/\. /g, '.\n\n')  // Add paragraph breaks after sentences
+      .replace(/\? /g, '?\n\n')
+      .replace(/! /g, '!\n\n')
+      .trim();
+
+    // Split into chunks of roughly equal size for chapters
+    const words = cleanText.split(' ');
+    const wordsPerChapter = Math.ceil(words.length / 10);
+    const chapters: { id: string; title: string; content: string }[] = [];
+    
+    for (let i = 0; i < words.length; i += wordsPerChapter) {
+      const chapterWords = words.slice(i, i + wordsPerChapter);
+      const content = chapterWords.join(' ');
+      const chapterNum = chapters.length + 1;
+      
+      // Create a clean title from first sentence or first few words
+      const firstSentence = content.split(/[.!?]/)[0].trim();
+      const title = firstSentence.length > 50 
+        ? `Chapter ${chapterNum}` 
+        : firstSentence || `Chapter ${chapterNum}`;
+      
+      chapters.push({
+        id: `ch-${chapterNum}`,
+        title,
+        content,
+      });
+    }
 
     // Save to database
     await db.savePDF({

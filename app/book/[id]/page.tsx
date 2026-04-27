@@ -223,14 +223,16 @@ export default function BookPage() {
           <article className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
             {selectedChapter && (
               <>
-                <header className="mb-10">
-                  <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4 text-balance leading-tight">
+                <header className="mb-12 pb-8 border-b border-border/50">
+                  <div className="flex items-center gap-2 text-sm text-primary font-medium mb-4">
+                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 text-primary font-bold">
+                      {pdf.chapters.indexOf(selectedChapter) + 1}
+                    </span>
+                    <span>of {pdf.chapters.length} chapters</span>
+                  </div>
+                  <h1 className="text-2xl md:text-3xl font-bold text-foreground leading-snug">
                     {selectedChapter.title}
                   </h1>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <div className="w-1 h-1 rounded-full bg-primary" />
-                    <span>Chapter {pdf.chapters.indexOf(selectedChapter) + 1} of {pdf.chapters.length}</span>
-                  </div>
                 </header>
 
                 <div
@@ -286,13 +288,8 @@ export default function BookPage() {
         </div>
       </div>
 
-      {/* Chat Button */}
-      <ChatButton
-        pdfId={pdfId}
-        onOpen={() => {
-          console.log('Chat opened for:', pdfId);
-        }}
-      />
+      {/* AI Chat Button */}
+      <ChatButton pdfId={pdfId} pdfTitle={pdf.title} />
     </main>
   );
 }
