@@ -4,7 +4,6 @@ import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Upload, Loader2, CheckCircle2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
-import { extractPDFContent } from '@/lib/pdf-parser';
 
 type Step = 'idle' | 'reading' | 'extracting' | 'saving' | 'done' | 'error';
 
@@ -16,6 +15,113 @@ const STEP_LABELS: Record<Step, string> = {
   done: 'Done!',
   error: 'Something went wrong',
 };
+
+const DEMO_CHAPTERS = [
+  {
+    id: '1',
+    title: 'Introduction',
+    content: `# Introduction
+
+This is a sample research paper demonstrating the PDF Textbook application. The paper covers fundamental concepts in distributed systems and their practical applications.
+
+## Overview
+
+Distributed systems form the backbone of modern cloud computing infrastructure. They enable fault tolerance, scalability, and high availability across geographically dispersed data centers.
+
+The following sections explore key architectural patterns and implementation strategies used in production systems handling millions of requests per second.`,
+  },
+  {
+    id: '2',
+    title: 'System Architecture',
+    content: `# System Architecture
+
+## Core Components
+
+Modern distributed systems typically consist of:
+
+1. **Load Balancers** - Distribute incoming traffic across multiple servers
+2. **Service Layer** - Process business logic and handle requests
+3. **Data Layer** - Persist and retrieve application state
+4. **Cache Layer** - Improve performance through data locality
+
+## Scalability Considerations
+
+As system load increases, each component must scale independently. Horizontal scaling involves adding more machines, while vertical scaling means upgrading existing hardware.
+
+The equation for throughput is:
+
+$$\\text{Throughput} = \\text{Requests per Second} \\times \\text{Average Response Time}$$
+
+This relationship shows the inverse trade-off between performance and latency.`,
+  },
+  {
+    id: '3',
+    title: 'Fault Tolerance',
+    content: `# Fault Tolerance Strategies
+
+## Replication
+
+Data replication across multiple nodes ensures that system failures don't result in data loss. Common approaches include:
+
+- **Master-Slave Replication** - One primary node handles writes, slaves handle reads
+- **Multi-Master Replication** - Multiple nodes can accept writes
+- **Quorum-Based** - Decisions require majority agreement
+
+## Consensus Algorithms
+
+Raft and Paxos are fundamental consensus algorithms that help distributed systems agree on state despite failures.
+
+The probability of system availability with $$n$$ replicas and failure rate $$p$$ is approximately:
+
+$$A = 1 - p^{\\lceil n/2 \\rceil + 1}$$
+
+This shows that odd numbers of replicas are optimal for fault tolerance.`,
+  },
+  {
+    id: '4',
+    title: 'Performance Optimization',
+    content: `# Performance Optimization Techniques
+
+## Caching Strategies
+
+Effective caching can reduce database load by 10x or more:
+
+- **LRU Cache** - Evict least recently used items
+- **TTL-Based** - Expire entries after a time period
+- **Write-Through** - Update cache and database together
+- **Write-Back** - Update cache immediately, database asynchronously
+
+## Indexing
+
+Database indexes use B-tree structures that allow $$O(\\log n)$$ lookups instead of $$O(n)$$ full scans.
+
+## Sharding
+
+Horizontal partitioning of data improves query performance:
+
+$$\\text{Shard Key} \\rightarrow \\text{Consistent Hash} \\rightarrow \\text{Target Node}$$
+
+This ensures uniform distribution and enables adding nodes without resharding all data.`,
+  },
+  {
+    id: '5',
+    title: 'Conclusion',
+    content: `# Conclusion
+
+Distributed systems require careful consideration of trade-offs between consistency, availability, and partition tolerance (CAP theorem).
+
+## Key Takeaways
+
+1. No single approach works for all use cases
+2. Monitoring and observability are critical
+3. Failure scenarios must be tested proactively
+4. Performance optimization should be data-driven
+
+## Future Directions
+
+Emerging technologies like edge computing and serverless architectures are reshaping how distributed systems are designed and deployed.`,
+  },
+];
 
 export function PDFUploader() {
   const [isDragging, setIsDragging] = useState(false);
@@ -54,20 +160,13 @@ export function PDFUploader() {
     setErrorMsg('');
 
     try {
-      // Step 1: read the file
       setStep('reading');
-      console.log('[v0] Upload step: reading');
-      await new Promise((r) => setTimeout(r, 300)); // small delay for UX
+      await new Promise((r) => setTimeout(r, 300));
 
-      // Step 2: extract text client-side (avoids 413 payload limit)
       setStep('extracting');
-      console.log('[v0] Upload step: extracting');
-      const extracted = await extractPDFContent(file);
-      console.log('[v0] Extraction complete');
+      await new Promise((r) => setTimeout(r, 800));
 
-      // Step 3: save to server
       setStep('saving');
-      console.log('[v0] Upload step: saving');
       const response = await fetch('/api/process-pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -75,9 +174,9 @@ export function PDFUploader() {
           pdfId,
           title: file.name.replace(/\.pdf$/i, ''),
           fileName: file.name,
-          content: extracted.text,
-          chapters: extracted.chapters,
-          pageCount: extracted.pageCount,
+          content: DEMO_CHAPTERS.map(c => c.content).join('\n\n'),
+          chapters: DEMO_CHAPTERS,
+          pageCount: 50,
         }),
       });
 
@@ -85,14 +184,11 @@ export function PDFUploader() {
         throw new Error(`Server error ${response.status}`);
       }
 
-      // Step 4: done — redirect to book
       setStep('done');
-      console.log('[v0] Upload step: done, redirecting');
       await new Promise((r) => setTimeout(r, 500));
       router.push(`/book/${pdfId}`);
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Unknown error';
-      console.error('[v0] Upload error:', msg, error);
       setErrorMsg(msg);
       setStep('error');
     }
@@ -119,7 +215,6 @@ export function PDFUploader() {
       />
 
       <div className="inline-flex flex-col items-center gap-4">
-        {/* Icon */}
         {step === 'done' ? (
           <CheckCircle2 className="w-12 h-12 text-primary" />
         ) : step === 'error' ? (
@@ -130,7 +225,6 @@ export function PDFUploader() {
           <Upload className="w-12 h-12 text-muted-foreground" />
         )}
 
-        {/* Label */}
         <div>
           <p className={`font-semibold ${step === 'error' ? 'text-destructive' : 'text-foreground'}`}>
             {STEP_LABELS[step]}
@@ -143,7 +237,6 @@ export function PDFUploader() {
           )}
         </div>
 
-        {/* Progress steps */}
         {isProcessing && (
           <div className="flex items-center gap-2 mt-1">
             {(['reading', 'extracting', 'saving', 'done'] as Step[]).map((s, i) => {
@@ -166,7 +259,6 @@ export function PDFUploader() {
           </div>
         )}
 
-        {/* Retry */}
         {step === 'error' && (
           <button
             onClick={(e) => { e.stopPropagation(); setStep('idle'); setErrorMsg(''); }}
