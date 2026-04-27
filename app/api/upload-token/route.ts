@@ -11,6 +11,7 @@ export async function POST(request: NextRequest) {
       onBeforeGenerateToken: async () => ({
         allowedContentTypes: ['application/pdf'],
         maximumSizeInBytes: 50 * 1024 * 1024, // 50MB
+        access: 'public',
       }),
       onUploadCompleted: async () => {
         // Called after upload completes
