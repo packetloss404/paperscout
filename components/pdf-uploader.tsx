@@ -6,8 +6,8 @@ import { Upload, Loader2, CheckCircle2 } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
 import { v4 as uuidv4 } from 'uuid';
 
-// Set up the worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Set up the worker - use local copy instead of CDN
+pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
 
 type Step = 'idle' | 'extracting' | 'uploading' | 'done' | 'error';
 
