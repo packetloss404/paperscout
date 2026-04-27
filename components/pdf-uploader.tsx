@@ -3,13 +3,15 @@
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Upload, Loader2, CheckCircle2 } from 'lucide-react';
+import { upload } from '@vercel/blob/client';
 import { v4 as uuidv4 } from 'uuid';
 
-type Step = 'idle' | 'uploading' | 'done' | 'error';
+type Step = 'idle' | 'uploading' | 'processing' | 'done' | 'error';
 
 const STEP_LABELS: Record<Step, string> = {
   idle: 'Drag & drop your PDF here',
-  uploading: 'Processing PDF...',
+  uploading: 'Uploading PDF...',
+  processing: 'Processing content...',
   done: 'Done!',
   error: 'Something went wrong',
 };
@@ -51,15 +53,23 @@ export function PDFUploader() {
     setErrorMsg('');
 
     try {
+      // Step 1: Upload directly to Blob (bypasses serverless function limit)
       setStep('uploading');
+      const blob = await upload(file.name, file, {
+        access: 'public',
+        handleUploadUrl: '/api/upload-token',
+      });
 
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('pdfId', pdfId);
-
-      const response = await fetch('/api/upload-pdf', {
+      // Step 2: Process the uploaded PDF
+      setStep('processing');
+      const response = await fetch('/api/process-pdf', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pdfId,
+          blobUrl: blob.url,
+          fileName: file.name,
+        }),
       });
 
       if (!response.ok) {
@@ -122,8 +132,8 @@ export function PDFUploader() {
 
         {isProcessing && (
           <div className="flex items-center gap-2 mt-1">
-            {(['uploading', 'done'] as Step[]).map((s, i) => {
-              const steps: Step[] = ['uploading', 'done'];
+            {(['uploading', 'processing', 'done'] as Step[]).map((s, i) => {
+              const steps: Step[] = ['uploading', 'processing', 'done'];
               const currentIdx = steps.indexOf(step);
               const thisIdx = steps.indexOf(s);
               const done = thisIdx < currentIdx;
@@ -135,7 +145,7 @@ export function PDFUploader() {
                       done ? 'bg-primary' : active ? 'bg-primary animate-pulse' : 'bg-border'
                     }`}
                   />
-                  {i < 1 && <div className="w-6 h-px bg-border" />}
+                  {i < 2 && <div className="w-6 h-px bg-border" />}
                 </div>
               );
             })}

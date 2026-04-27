@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { get } from '@vercel/blob';
 import pdfParse from 'pdf-parse';
 
 export const maxDuration = 300;
@@ -8,41 +7,33 @@ export const maxDuration = 300;
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { pdfId, blobPathname, fileName } = body;
+    const { pdfId, blobUrl, fileName } = body;
 
-    if (!pdfId || !blobPathname) {
+    if (!pdfId || !blobUrl) {
       return NextResponse.json(
-        { error: 'Missing pdfId or blob pathname' },
+        { error: 'Missing pdfId or blob URL' },
         { status: 400 }
       );
     }
 
-    console.log('[v0] Processing PDF:', blobPathname);
-
-    // Fetch the PDF from blob storage
-    const blob = await get(blobPathname, { access: 'private' });
-    
-    if (!blob) {
+    // Fetch the PDF from the public blob URL
+    const response = await fetch(blobUrl);
+    if (!response.ok) {
       return NextResponse.json(
-        { error: 'PDF not found in storage' },
+        { error: 'Failed to fetch PDF from storage' },
         { status: 404 }
       );
     }
 
-    console.log('[v0] Downloaded blob, size:', blob.blob.size);
+    // Convert to buffer
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
 
-    // Convert blob stream to buffer
-    const buffer = await blob.stream.arrayBuffer().then(ab => Buffer.from(ab));
-
-    console.log('[v0] Extracting text with pdf-parse');
     const pdfData = await pdfParse(buffer);
     const fullText = pdfData.text;
     const pageCount = pdfData.numpages;
 
-    console.log('[v0] Extracted', fullText.length, 'characters from', pageCount, 'pages');
-
     const chapters = parseChapters(fullText);
-    console.log('[v0] Parsed', chapters.length, 'chapters');
 
     await db.savePDF({
       id: pdfId,
@@ -55,14 +46,11 @@ export async function POST(request: NextRequest) {
       status: 'complete',
     });
 
-    console.log('[v0] PDF saved successfully');
-
     return NextResponse.json({
       pdfId,
       status: 'complete',
     });
   } catch (error) {
-    console.error('[v0] PDF processing error:', error);
     const errorMsg = error instanceof Error ? error.message : 'Failed to process PDF';
     return NextResponse.json(
       { error: errorMsg },
