@@ -3,15 +3,13 @@
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Upload, Loader2, CheckCircle2 } from 'lucide-react';
-import { upload } from '@vercel/blob/client';
 import { v4 as uuidv4 } from 'uuid';
 
-type Step = 'idle' | 'uploading' | 'processing' | 'done' | 'error';
+type Step = 'idle' | 'uploading' | 'done' | 'error';
 
 const STEP_LABELS: Record<Step, string> = {
   idle: 'Drag & drop your PDF here',
-  uploading: 'Uploading PDF...',
-  processing: 'Processing content...',
+  uploading: 'Processing PDF...',
   done: 'Done!',
   error: 'Something went wrong',
 };
@@ -53,27 +51,20 @@ export function PDFUploader() {
     setErrorMsg('');
 
     try {
-      // Step 1: Upload directly to Blob (bypasses serverless function limit)
       setStep('uploading');
-      const blob = await upload(file.name, file, {
-        handleUploadUrl: '/api/upload-token',
-      });
 
-      // Step 2: Process the uploaded PDF
-      setStep('processing');
-      const response = await fetch('/api/process-pdf', {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('pdfId', pdfId);
+
+      const response = await fetch('/api/upload-pdf', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          pdfId,
-          blobUrl: blob.url,
-          fileName: file.name,
-        }),
+        body: formData,
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to process PDF');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Upload failed: ${response.status}`);
       }
 
       setStep('done');
@@ -131,8 +122,8 @@ export function PDFUploader() {
 
         {isProcessing && (
           <div className="flex items-center gap-2 mt-1">
-            {(['uploading', 'processing', 'done'] as Step[]).map((s, i) => {
-              const steps: Step[] = ['uploading', 'processing', 'done'];
+            {(['uploading', 'done'] as Step[]).map((s, i) => {
+              const steps: Step[] = ['uploading', 'done'];
               const currentIdx = steps.indexOf(step);
               const thisIdx = steps.indexOf(s);
               const done = thisIdx < currentIdx;
@@ -144,7 +135,7 @@ export function PDFUploader() {
                       done ? 'bg-primary' : active ? 'bg-primary animate-pulse' : 'bg-border'
                     }`}
                   />
-                  {i < 2 && <div className="w-6 h-px bg-border" />}
+                  {i < 1 && <div className="w-6 h-px bg-border" />}
                 </div>
               );
             })}
