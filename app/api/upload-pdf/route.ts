@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { processPDF } from '@/lib/pdf-workflow';
 
 export const maxDuration = 300;
 
@@ -15,50 +16,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Clean and format the extracted text
-    const cleanText = extractedText
-      .replace(/\s+/g, ' ')  // Normalize whitespace
-      .replace(/\. /g, '.\n\n')  // Add paragraph breaks after sentences
-      .replace(/\? /g, '?\n\n')
-      .replace(/! /g, '!\n\n')
-      .trim();
+    const title = fileName.replace(/\.pdf$/i, '');
 
-    // Split into chunks of roughly equal size for chapters
-    const words = cleanText.split(' ');
-    const wordsPerChapter = Math.ceil(words.length / 10);
-    const chapters: { id: string; title: string; content: string }[] = [];
-    
-    for (let i = 0; i < words.length; i += wordsPerChapter) {
-      const chapterWords = words.slice(i, i + wordsPerChapter);
-      const content = chapterWords.join(' ');
-      const chapterNum = chapters.length + 1;
-      
-      // Create a clean title from first sentence or first few words
-      const firstSentence = content.split(/[.!?]/)[0].trim();
-      const title = firstSentence.length > 50 
-        ? `Chapter ${chapterNum}` 
-        : firstSentence || `Chapter ${chapterNum}`;
-      
-      chapters.push({
-        id: `ch-${chapterNum}`,
-        title,
-        content,
-      });
-    }
-
-    // Save to database
     await db.savePDF({
       id: pdfId,
-      title: fileName.replace(/\.pdf$/i, ''),
+      title,
       fileName,
       pageCount: pageCount || 1,
       dateAdded: new Date(),
       content: extractedText,
-      chapters,
-      status: 'complete',
+      status: 'processing',
     });
 
-    return NextResponse.json({ pdfId, status: 'complete' });
+    processPDF(pdfId, title, extractedText, pageCount || 1)
+      .then(({ status, error }) => {
+        if (error) {
+          console.error(`PDF ${pdfId} processing failed:`, error);
+          db.updatePDFStatus(pdfId, 'error');
+        }
+      })
+      .catch((err) => {
+        console.error(`PDF ${pdfId} workflow error:`, err);
+        db.updatePDFStatus(pdfId, 'error');
+      });
+
+    return NextResponse.json({ pdfId, status: 'processing' });
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Upload failed';
     return NextResponse.json({ error: msg }, { status: 500 });

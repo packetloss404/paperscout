@@ -1,10 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { PDFUploader } from '@/components/pdf-uploader';
+import dynamic from 'next/dynamic';
 import { PDFCard } from '@/components/pdf-card';
 import { PDF } from '@/lib/db';
 import { BookOpen } from 'lucide-react';
+
+const PDFUploader = dynamic(() => import('@/components/pdf-uploader').then(mod => mod.PDFUploader), {
+  ssr: false,
+  loading: () => <div className="h-48 bg-muted/20 rounded-xl animate-pulse" />,
+});
 
 export default function HomePage() {
   const [pdfs, setPdfs] = useState<PDF[]>([]);
