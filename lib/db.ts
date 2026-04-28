@@ -123,8 +123,9 @@ async function addToIndex(id: string): Promise<void> {
     if (indexBlob) {
       const text = await indexBlob.text();
       ids = JSON.parse(text);
-      if (!ids.includes(id)) {
-        ids.push(id);
+    }
+    if (!ids.includes(id)) {
+      ids.push(id);
       await put(INDEX_KEY, JSON.stringify(ids), { contentType: "application/json", access: "public" });
     }
   } catch {
