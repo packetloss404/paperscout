@@ -123,9 +123,8 @@ async function addToIndex(id: string): Promise<void> {
     if (indexBlob) {
       const text = await indexBlob.text();
       ids = JSON.parse(text);
-    }
-    if (!ids.includes(id)) {
-      ids.push(id);
+      if (!ids.includes(id)) {
+        ids.push(id);
       await put(INDEX_KEY, JSON.stringify(ids), { contentType: "application/json", access: "public" });
     }
   } catch {
@@ -138,7 +137,7 @@ async function removeFromIndex(id: string): Promise<void> {
     const indexBlob = await get(INDEX_KEY);
     if (!indexBlob) return;
     const text = await indexBlob.text();
-    const ids: string[] = JSON.parse(text);
+    let ids: string[] = JSON.parse(text);
     ids = ids.filter((i) => i !== id);
     await put(INDEX_KEY, JSON.stringify(ids), { contentType: "application/json", access: "public" });
   } catch {}
