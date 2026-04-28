@@ -103,7 +103,7 @@ export default function HomePage() {
               </p>
             </div>
           </div>
-          <PDFUploader />
+          <PDFUploader onUploaded={loadPDFs} />
         </section>
 
         {/* Library Section */}

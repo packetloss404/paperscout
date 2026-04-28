@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
 import { Upload, Loader2, CheckCircle2 } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
 import { v4 as uuidv4 } from 'uuid';
@@ -9,24 +8,28 @@ import { v4 as uuidv4 } from 'uuid';
 // Set up the worker - use local copy instead of CDN
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
 
-type Step = 'idle' | 'extracting' | 'uploading' | 'done' | 'error';
+type Step = 'idle' | 'extracting' | 'uploading' | 'processing' | 'done' | 'error';
 
 const STEP_LABELS: Record<Step, string> = {
   idle: 'Drag & drop your PDF here',
   extracting: 'Extracting text from PDF...',
-  uploading: 'Uploading...',
-  done: 'Done!',
+  uploading: 'Uploading extracted text...',
+  processing: 'AI is turning this into a textbook...',
+  done: 'Ready in your library',
   error: 'Something went wrong',
 };
 
-export function PDFUploader() {
+interface PDFUploaderProps {
+  onUploaded?: (pdfId: string) => void;
+}
+
+export function PDFUploader({ onUploaded }: PDFUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [step, setStep] = useState<Step>('idle');
   const [errorMsg, setErrorMsg] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const router = useRouter();
 
-  const isProcessing = step !== 'idle' && step !== 'error';
+  const isProcessing = step === 'extracting' || step === 'uploading' || step === 'processing';
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -78,9 +81,9 @@ export function PDFUploader() {
       setStep('extracting');
       const { text, pageCount } = await extractPDFText(file);
 
-      // Step 2: Upload extracted text to server
+      // Step 2: Upload extracted text and wait for AI processing to complete
       setStep('uploading');
-      const response = await fetch('/api/upload-pdf', {
+      const uploadPromise = fetch('/api/upload-pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -91,14 +94,16 @@ export function PDFUploader() {
         }),
       });
 
+      setStep('processing');
+      const response = await uploadPromise;
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `Upload failed: ${response.status}`);
       }
 
       setStep('done');
-      await new Promise((r) => setTimeout(r, 500));
-      router.push(`/book/${pdfId}`);
+      onUploaded?.(pdfId);
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Unknown error';
       setErrorMsg(msg);
@@ -164,8 +169,8 @@ export function PDFUploader() {
 
         {isProcessing && (
           <div className="flex items-center gap-2">
-            {(['extracting', 'uploading', 'done'] as Step[]).map((s, i) => {
-              const steps: Step[] = ['extracting', 'uploading', 'done'];
+            {(['extracting', 'uploading', 'processing', 'done'] as Step[]).map((s, i) => {
+              const steps: Step[] = ['extracting', 'uploading', 'processing', 'done'];
               const currentIdx = steps.indexOf(step);
               const thisIdx = steps.indexOf(s);
               const done = thisIdx < currentIdx;
@@ -177,7 +182,7 @@ export function PDFUploader() {
                       done ? 'bg-indigo-600' : active ? 'bg-indigo-600 animate-pulse' : 'bg-gray-300'
                     }`}
                   />
-                  {i < 2 && <div className="w-6 h-px bg-gray-300" />}
+                  {i < steps.length - 1 && <div className="w-6 h-px bg-gray-300" />}
                 </div>
               );
             })}
