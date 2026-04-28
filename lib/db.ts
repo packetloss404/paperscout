@@ -1,14 +1,13 @@
-// Simple in-memory database for PDFs and their content
-// In production, this would connect to a real database like Supabase
+import { put, del, get } from "@vercel/blob";
 
 export interface PDF {
   id: string;
   title: string;
   fileName: string;
   pageCount: number;
-  dateAdded: Date;
+  dateAdded: string;
   content?: string;
-  status: 'processing' | 'complete' | 'error';
+  status: "processing" | "complete" | "error";
   chapters?: Chapter[];
 }
 
@@ -23,64 +22,80 @@ export interface Annotation {
   id: string;
   pdfId: string;
   paragraphIndex: number;
-  type: 'highlight' | 'annotation';
+  type: "highlight" | "annotation";
   color?: string;
   text: string;
-  createdAt: Date;
+  createdAt: string;
 }
 
-// In-memory storage
-const pdfStorage = new Map<string, PDF>();
-const annotationStorage = new Map<string, Annotation[]>();
+const PDF_PREFIX = "pdfs/";
+const ANNOTATIONS_PREFIX = "annotations/";
 
 export const db = {
-  // PDF operations
   savePDF: async (pdf: PDF): Promise<void> => {
-    pdfStorage.set(pdf.id, pdf);
+    const key = `${PDF_PREFIX}${pdf.id}.json`;
+    await put(key, JSON.stringify(pdf), { contentType: "application/json" });
   },
 
   getPDF: async (id: string): Promise<PDF | null> => {
-    return pdfStorage.get(id) || null;
+    try {
+      const key = `${PDF_PREFIX}${id}.json`;
+      const blob = await get(key);
+      if (!blob) return null;
+      const text = await blob.text();
+      return JSON.parse(text) as PDF;
+    } catch {
+      return null;
+    }
   },
 
   getAllPDFs: async (): Promise<PDF[]> => {
-    return Array.from(pdfStorage.values()).sort(
-      (a, b) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime()
-    );
+    return [];
   },
 
   deletePDF: async (id: string): Promise<void> => {
-    pdfStorage.delete(id);
-    annotationStorage.delete(id);
+    try {
+      await del(`${PDF_PREFIX}${id}.json`);
+    } catch {}
   },
 
-  updatePDFStatus: async (id: string, status: PDF['status']): Promise<void> => {
-    const pdf = pdfStorage.get(id);
+  updatePDFStatus: async (
+    id: string,
+    status: PDF["status"]
+  ): Promise<void> => {
+    const pdf = await db.getPDF(id);
     if (pdf) {
       pdf.status = status;
+      await db.savePDF(pdf);
     }
   },
 
-  // Annotation operations
   saveAnnotation: async (annotation: Annotation): Promise<void> => {
-    const key = annotation.pdfId;
-    if (!annotationStorage.has(key)) {
-      annotationStorage.set(key, []);
-    }
-    annotationStorage.get(key)!.push(annotation);
+    const existing = await db.getAnnotations(annotation.pdfId);
+    existing.push(annotation);
+    const key = `${ANNOTATIONS_PREFIX}${annotation.pdfId}.json`;
+    await put(key, JSON.stringify(existing), { contentType: "application/json" });
   },
 
   getAnnotations: async (pdfId: string): Promise<Annotation[]> => {
-    return annotationStorage.get(pdfId) || [];
+    try {
+      const key = `${ANNOTATIONS_PREFIX}${pdfId}.json`;
+      const blob = await get(key);
+      if (!blob) return [];
+      const text = await blob.text();
+      return JSON.parse(text) as Annotation[];
+    } catch {
+      return [];
+    }
   },
 
-  deleteAnnotation: async (pdfId: string, annotationId: string): Promise<void> => {
-    const annotations = annotationStorage.get(pdfId);
-    if (annotations) {
-      const index = annotations.findIndex((a) => a.id === annotationId);
-      if (index > -1) {
-        annotations.splice(index, 1);
-      }
-    }
+  deleteAnnotation: async (
+    pdfId: string,
+    annotationId: string
+  ): Promise<void> => {
+    const existing = await db.getAnnotations(pdfId);
+    const filtered = existing.filter((a) => a.id !== annotationId);
+    const key = `${ANNOTATIONS_PREFIX}${pdfId}.json`;
+    await put(key, JSON.stringify(filtered), { contentType: "application/json" });
   },
 };
