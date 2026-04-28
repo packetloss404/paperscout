@@ -1,4 +1,4 @@
-import { put, del, get, list } from "@vercel/blob";
+import { put, del, get } from "@vercel/blob";
 
 export interface PDF {
   id: string;
@@ -35,7 +35,7 @@ const INDEX_KEY = "pdf-index.json";
 export const db = {
   savePDF: async (pdf: PDF): Promise<void> => {
     const key = `${PDF_PREFIX}${pdf.id}.json`;
-    await put(key, JSON.stringify(pdf), { contentType: "application/json", access: "public" });
+    await put(key, JSON.stringify(pdf), { contentType: "application/json", access: "private" });
     await addToIndex(pdf.id);
   },
 
@@ -90,7 +90,7 @@ export const db = {
     const existing = await db.getAnnotations(annotation.pdfId);
     existing.push(annotation);
     const key = `${ANNOTATIONS_PREFIX}${annotation.pdfId}.json`;
-    await put(key, JSON.stringify(existing), { contentType: "application/json", access: "public" });
+    await put(key, JSON.stringify(existing), { contentType: "application/json", access: "private" });
   },
 
   getAnnotations: async (pdfId: string): Promise<Annotation[]> => {
@@ -112,7 +112,7 @@ export const db = {
     const existing = await db.getAnnotations(pdfId);
     const filtered = existing.filter((a) => a.id !== annotationId);
     const key = `${ANNOTATIONS_PREFIX}${pdfId}.json`;
-    await put(key, JSON.stringify(filtered), { contentType: "application/json", access: "public" });
+    await put(key, JSON.stringify(filtered), { contentType: "application/json", access: "private" });
   },
 };
 
@@ -126,10 +126,10 @@ async function addToIndex(id: string): Promise<void> {
     }
     if (!ids.includes(id)) {
       ids.push(id);
-      await put(INDEX_KEY, JSON.stringify(ids), { contentType: "application/json", access: "public" });
+      await put(INDEX_KEY, JSON.stringify(ids), { contentType: "application/json", access: "private" });
     }
   } catch {
-    await put(INDEX_KEY, JSON.stringify([id]), { contentType: "application/json", access: "public" });
+    await put(INDEX_KEY, JSON.stringify([id]), { contentType: "application/json", access: "private" });
   }
 }
 
@@ -140,6 +140,6 @@ async function removeFromIndex(id: string): Promise<void> {
     const text = await indexBlob.text();
     let ids: string[] = JSON.parse(text);
     ids = ids.filter((i) => i !== id);
-    await put(INDEX_KEY, JSON.stringify(ids), { contentType: "application/json", access: "public" });
+    await put(INDEX_KEY, JSON.stringify(ids), { contentType: "application/json", access: "private" });
   } catch {}
 }
