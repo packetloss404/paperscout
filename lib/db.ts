@@ -1,5 +1,11 @@
 import { put, del, get } from "@vercel/blob";
 
+const JSON_BLOB_OPTIONS = {
+  contentType: "application/json",
+  access: "private" as const,
+  allowOverwrite: true,
+};
+
 export interface PDF {
   id: string;
   title: string;
@@ -35,7 +41,7 @@ const INDEX_KEY = "pdf-index.json";
 export const db = {
   savePDF: async (pdf: PDF): Promise<void> => {
     const key = `${PDF_PREFIX}${pdf.id}.json`;
-    await put(key, JSON.stringify(pdf), { contentType: "application/json", access: "private" });
+    await put(key, JSON.stringify(pdf), JSON_BLOB_OPTIONS);
     await addToIndex(pdf.id);
   },
 
@@ -90,7 +96,7 @@ export const db = {
     const existing = await db.getAnnotations(annotation.pdfId);
     existing.push(annotation);
     const key = `${ANNOTATIONS_PREFIX}${annotation.pdfId}.json`;
-    await put(key, JSON.stringify(existing), { contentType: "application/json", access: "private" });
+    await put(key, JSON.stringify(existing), JSON_BLOB_OPTIONS);
   },
 
   getAnnotations: async (pdfId: string): Promise<Annotation[]> => {
@@ -112,7 +118,7 @@ export const db = {
     const existing = await db.getAnnotations(pdfId);
     const filtered = existing.filter((a) => a.id !== annotationId);
     const key = `${ANNOTATIONS_PREFIX}${pdfId}.json`;
-    await put(key, JSON.stringify(filtered), { contentType: "application/json", access: "private" });
+    await put(key, JSON.stringify(filtered), JSON_BLOB_OPTIONS);
   },
 };
 
@@ -126,10 +132,10 @@ async function addToIndex(id: string): Promise<void> {
     }
     if (!ids.includes(id)) {
       ids.push(id);
-      await put(INDEX_KEY, JSON.stringify(ids), { contentType: "application/json", access: "private" });
+      await put(INDEX_KEY, JSON.stringify(ids), JSON_BLOB_OPTIONS);
     }
   } catch {
-    await put(INDEX_KEY, JSON.stringify([id]), { contentType: "application/json", access: "private" });
+    await put(INDEX_KEY, JSON.stringify([id]), JSON_BLOB_OPTIONS);
   }
 }
 
@@ -140,6 +146,6 @@ async function removeFromIndex(id: string): Promise<void> {
     const text = await indexBlob.text();
     let ids: string[] = JSON.parse(text);
     ids = ids.filter((i) => i !== id);
-    await put(INDEX_KEY, JSON.stringify(ids), { contentType: "application/json", access: "private" });
+    await put(INDEX_KEY, JSON.stringify(ids), JSON_BLOB_OPTIONS);
   } catch {}
 }
