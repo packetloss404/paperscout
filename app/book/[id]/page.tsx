@@ -8,7 +8,7 @@ import { ChapterNav } from '@/components/chapter-nav';
 import { MarkdownRenderer } from '@/components/markdown-renderer';
 import { AITutorPanel } from '@/components/ai-tutor-panel';
 import { LeftMargin } from '@/components/left-margin';
-import { BookOpen } from 'lucide-react';
+import { AlertCircle, BookOpen } from 'lucide-react';
 
 export default function BookPage() {
   const params = useParams();
@@ -21,6 +21,7 @@ export default function BookPage() {
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedParagraphIndex, setSelectedParagraphIndex] = useState<number | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     loadPDF();
@@ -36,30 +37,35 @@ export default function BookPage() {
     loadAnnotations();
   }, [pdfId]);
 
-  const loadPDF = async (attempt = 0) => {
+  const loadPDF = async () => {
     try {
       const response = await fetch(`/api/pdf/${pdfId}`);
       if (response.ok) {
         const data: PDF = await response.json();
         setPdf(data);
-        if (data.status !== 'complete' && attempt < 30) {
-          setTimeout(() => loadPDF(attempt + 1), 600);
-          return;
-        }
-      } else if (response.status === 404 && attempt < 30) {
-        setTimeout(() => loadPDF(attempt + 1), 600);
-        return;
+        setLoadError(data.status === 'error' ? 'This book failed to process.' : null);
+      } else if (response.status === 404) {
+        setLoadError(null);
+      } else {
+        setLoadError('Unable to load this book.');
       }
     } catch (error) {
       console.error('Failed to load PDF:', error);
-      if (attempt < 30) {
-        setTimeout(() => loadPDF(attempt + 1), 600);
-        return;
-      }
+      setLoadError('Unable to load this book.');
     } finally {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!pdf || pdf.status === 'processing') {
+        loadPDF();
+      }
+    }, 1500);
+
+    return () => clearInterval(interval);
+  }, [pdfId, pdf?.status]);
 
   const loadAnnotations = async () => {
     try {
@@ -108,7 +114,7 @@ export default function BookPage() {
     }
   };
 
-  const stillLoading = isLoading || !pdf || pdf.status !== 'complete';
+  const stillLoading = isLoading || !pdf || pdf.status === 'processing';
 
   if (stillLoading) {
     return (
@@ -126,6 +132,30 @@ export default function BookPage() {
             </p>
             <p className="text-sm text-gray-600">This will only take a moment</p>
           </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (loadError || pdf?.status === 'error') {
+    return (
+      <main className="min-h-screen bg-white flex items-center justify-center px-4">
+        <div className="text-center space-y-6 max-w-md">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-red-100 rounded-2xl">
+            <AlertCircle className="w-8 h-8 text-red-600" />
+          </div>
+          <div className="space-y-2">
+            <p className="text-lg font-semibold text-gray-900">Book processing failed</p>
+            <p className="text-sm text-gray-600">
+              {loadError || 'The AI conversion did not complete successfully.'}
+            </p>
+          </div>
+          <button
+            onClick={() => router.push('/')}
+            className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors"
+          >
+            Back to Library
+          </button>
         </div>
       </main>
     );

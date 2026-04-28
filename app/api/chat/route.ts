@@ -1,4 +1,5 @@
 import { generateText } from 'ai';
+import { openai } from '@ai-sdk/openai';
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
@@ -57,7 +58,7 @@ Instructions:
     messages.push({ role: 'user', content: message });
 
     const result = await generateText({
-      model: 'gpt-4o-mini',
+      model: openai('gpt-4o-mini'),
       system: systemPrompt,
       messages,
     });

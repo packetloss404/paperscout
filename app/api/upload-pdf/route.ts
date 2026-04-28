@@ -30,6 +30,13 @@ export async function POST(request: NextRequest) {
 
     const result = await processPDF(pdfId, title, extractedText, pageCount || 1);
 
+    if (result.status === 'error') {
+      return NextResponse.json(
+        { error: result.error || 'Processing failed', pdfId, status: 'error' },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json({ pdfId, status: result.status, error: result.error });
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Upload failed';

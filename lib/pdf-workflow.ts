@@ -1,4 +1,5 @@
 import { generateText } from "ai";
+import { openai } from "@ai-sdk/openai";
 import { db } from "@/lib/db";
 
 interface ChapterResult {
@@ -71,8 +72,8 @@ export async function processPDF(
 }
 
 async function analyzeAndChunk(text: string) {
-    const { text: chunked } = await generateText({
-    model: "gpt-4o-mini",
+  const { text: chunked } = await generateText({
+    model: openai("gpt-4o-mini"),
     system: `You are a research paper analyzer. Your job is to:
 1. Identify the logical chapters/sections of the paper based on content structure
 2. Extract a good title for each chapter (keep it short, 3-8 words)
@@ -106,7 +107,7 @@ async function convertChapter(
   text: string
 ): Promise<{ title: string; markdown: string; originalText: string }> {
   const { text: markdown } = await generateText({
-    model: "gpt-4o-mini",
+    model: openai("gpt-4o-mini"),
     system: `You are an academic paper formatter. Convert raw extracted text into clean Markdown.
 
 Rules:
