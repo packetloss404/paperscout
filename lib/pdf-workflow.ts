@@ -1,7 +1,4 @@
-"use workflow";
-
-import { DurableAgent } from "@workflow/ai/agent";
-import { generateText, step as aiStep } from "ai";
+import { generateText } from "ai";
 import { db } from "@/lib/db";
 
 interface ChapterResult {
@@ -11,75 +8,69 @@ interface ChapterResult {
   originalText: string;
 }
 
-interface WorkflowState {
-  pdfId: string;
-  title: string;
-  rawText: string;
-  pageCount: number;
-  chapters: ChapterResult[];
-  errors: string[];
-}
-
 export async function processPDF(
   pdfId: string,
   title: string,
   rawText: string,
   pageCount: number
 ): Promise<{ status: string; chapters?: ChapterResult[]; error?: string }> {
-  "use step";
+  try {
+    await db.updatePDFStatus(pdfId, "processing");
 
-  await db.updatePDFStatus(pdfId, "processing");
+    const chapterMap = await analyzeAndChunk(rawText);
 
-  const chapterMap = await analyzeAndChunk(rawText);
+    await db.savePDF({
+      id: pdfId,
+      title,
+      fileName: title,
+      pageCount,
+      dateAdded: new Date(),
+      content: rawText,
+      chapters: chapterMap.map((ch, i) => ({
+        id: `ch-${i + 1}`,
+        title: ch.title,
+        content: ch.title,
+      })),
+      status: "processing",
+    });
 
-  await db.savePDF({
-    id: pdfId,
-    title,
-    fileName: title,
-    pageCount,
-    dateAdded: new Date(),
-    content: rawText,
-    chapters: chapterMap.map((ch, i) => ({
-      id: `ch-${i + 1}`,
-      title: ch.title,
-      content: ch.title,
-    })),
-    status: "processing",
-  });
-
-  const processedChapters = await Promise.all(
-    chapterMap.map((chunk, i) =>
-      convertChapter(
-        pdfId,
-        i + 1,
-        chapterMap.length,
-        chunk.title,
-        chunk.text
+    const processedChapters = await Promise.all(
+      chapterMap.map((chunk, i) =>
+        convertChapter(
+          pdfId,
+          i + 1,
+          chapterMap.length,
+          chunk.title,
+          chunk.text
+        )
       )
-    )
-  );
+    );
 
-  await db.savePDF({
-    id: pdfId,
-    title,
-    fileName: title,
-    pageCount,
-    dateAdded: new Date(),
-    content: rawText,
-    chapters: processedChapters.map((ch, i) => ({
-      id: `ch-${i + 1}`,
-      title: ch.title,
-      content: ch.markdown,
-    })),
-    status: "complete",
-  });
+    await db.savePDF({
+      id: pdfId,
+      title,
+      fileName: title,
+      pageCount,
+      dateAdded: new Date(),
+      content: rawText,
+      chapters: processedChapters.map((ch, i) => ({
+        id: `ch-${i + 1}`,
+        title: ch.title,
+        content: ch.markdown,
+      })),
+      status: "complete",
+    });
 
-  return { status: "complete", chapters: processedChapters };
+    return { status: "complete", chapters: processedChapters };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "Processing failed";
+    console.error("processPDF error:", msg);
+    await db.updatePDFStatus(pdfId, "error");
+    return { status: "error", error: msg };
+  }
 }
 
 async function analyzeAndChunk(text: string) {
-  "use step";
-
   const { text: chunked } = await generateText({
     model: "openai/gpt-4o-mini",
     system: `You are a research paper analyzer. Your job is to:
@@ -89,7 +80,7 @@ async function analyzeAndChunk(text: string) {
 
 Rules:
 - Split by major sections: Introduction, Methods, Results, Discussion, Conclusion, etc.
-- Also split long sections (>3000 chars) into subsections
+- Also split long sections into subsections if needed
 - Include chapter titles that are descriptive
 - Preserve ALL content including mathematical notation (keep $...$ and $$...$$ LaTeX intact)
 - Preserve code snippets, figures references, table references
@@ -114,8 +105,6 @@ async function convertChapter(
   title: string,
   text: string
 ): Promise<{ title: string; markdown: string; originalText: string }> {
-  "use step";
-
   const { text: markdown } = await generateText({
     model: "openai/gpt-4o-mini",
     system: `You are an academic paper formatter. Convert raw extracted text into clean Markdown.

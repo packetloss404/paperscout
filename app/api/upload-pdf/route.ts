@@ -28,19 +28,9 @@ export async function POST(request: NextRequest) {
       status: 'processing',
     });
 
-    processPDF(pdfId, title, extractedText, pageCount || 1)
-      .then(({ status, error }) => {
-        if (error) {
-          console.error(`PDF ${pdfId} processing failed:`, error);
-          db.updatePDFStatus(pdfId, 'error');
-        }
-      })
-      .catch((err) => {
-        console.error(`PDF ${pdfId} workflow error:`, err);
-        db.updatePDFStatus(pdfId, 'error');
-      });
+    const result = await processPDF(pdfId, title, extractedText, pageCount || 1);
 
-    return NextResponse.json({ pdfId, status: 'processing' });
+    return NextResponse.json({ pdfId, status: result.status, error: result.error });
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Upload failed';
     return NextResponse.json({ error: msg }, { status: 500 });
