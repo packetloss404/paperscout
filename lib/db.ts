@@ -3,6 +3,7 @@ import { put, del, get } from "@vercel/blob";
 const JSON_BLOB_OPTIONS = {
   contentType: "application/json",
   access: "private" as const,
+  addRandomSuffix: false,
   allowOverwrite: true,
 };
 
@@ -48,7 +49,7 @@ export const db = {
   getPDF: async (id: string): Promise<PDF | null> => {
     try {
       const key = `${PDF_PREFIX}${id}.json`;
-      const blob = await get(key);
+      const blob = await get(key, { access: "private", useCache: false });
       if (!blob) return null;
       const text = await blob.text();
       return JSON.parse(text) as PDF;
@@ -59,7 +60,7 @@ export const db = {
 
   getAllPDFs: async (): Promise<PDF[]> => {
     try {
-      const indexBlob = await get(INDEX_KEY);
+      const indexBlob = await get(INDEX_KEY, { access: "private", useCache: false });
       if (!indexBlob) return [];
       const indexText = await indexBlob.text();
       const ids: string[] = JSON.parse(indexText);
@@ -102,7 +103,7 @@ export const db = {
   getAnnotations: async (pdfId: string): Promise<Annotation[]> => {
     try {
       const key = `${ANNOTATIONS_PREFIX}${pdfId}.json`;
-      const blob = await get(key);
+      const blob = await get(key, { access: "private", useCache: false });
       if (!blob) return [];
       const text = await blob.text();
       return JSON.parse(text) as Annotation[];
@@ -124,7 +125,7 @@ export const db = {
 
 async function addToIndex(id: string): Promise<void> {
   try {
-    const indexBlob = await get(INDEX_KEY);
+    const indexBlob = await get(INDEX_KEY, { access: "private", useCache: false });
     let ids: string[] = [];
     if (indexBlob) {
       const text = await indexBlob.text();
@@ -141,7 +142,7 @@ async function addToIndex(id: string): Promise<void> {
 
 async function removeFromIndex(id: string): Promise<void> {
   try {
-    const indexBlob = await get(INDEX_KEY);
+    const indexBlob = await get(INDEX_KEY, { access: "private", useCache: false });
     if (!indexBlob) return;
     const text = await indexBlob.text();
     let ids: string[] = JSON.parse(text);
