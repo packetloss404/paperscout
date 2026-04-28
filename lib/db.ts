@@ -1,4 +1,4 @@
-import { put, del, get } from "@vercel/blob";
+import { put, del, get, list } from "@vercel/blob";
 
 export interface PDF {
   id: string;
@@ -30,11 +30,13 @@ export interface Annotation {
 
 const PDF_PREFIX = "pdfs/";
 const ANNOTATIONS_PREFIX = "annotations/";
+const INDEX_KEY = "pdf-index.json";
 
 export const db = {
   savePDF: async (pdf: PDF): Promise<void> => {
     const key = `${PDF_PREFIX}${pdf.id}.json`;
-    await put(key, JSON.stringify(pdf), { contentType: "application/json" });
+    await put(key, JSON.stringify(pdf), { contentType: "application/json", access: "public" });
+    await addToIndex(pdf.id);
   },
 
   getPDF: async (id: string): Promise<PDF | null> => {
@@ -50,12 +52,26 @@ export const db = {
   },
 
   getAllPDFs: async (): Promise<PDF[]> => {
-    return [];
+    try {
+      const indexBlob = await get(INDEX_KEY);
+      if (!indexBlob) return [];
+      const indexText = await indexBlob.text();
+      const ids: string[] = JSON.parse(indexText);
+      const pdfs: PDF[] = [];
+      for (const id of ids) {
+        const pdf = await db.getPDF(id);
+        if (pdf) pdfs.push(pdf);
+      }
+      return pdfs.sort((a, b) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime());
+    } catch {
+      return [];
+    }
   },
 
   deletePDF: async (id: string): Promise<void> => {
     try {
       await del(`${PDF_PREFIX}${id}.json`);
+      await removeFromIndex(id);
     } catch {}
   },
 
@@ -74,7 +90,7 @@ export const db = {
     const existing = await db.getAnnotations(annotation.pdfId);
     existing.push(annotation);
     const key = `${ANNOTATIONS_PREFIX}${annotation.pdfId}.json`;
-    await put(key, JSON.stringify(existing), { contentType: "application/json" });
+    await put(key, JSON.stringify(existing), { contentType: "application/json", access: "public" });
   },
 
   getAnnotations: async (pdfId: string): Promise<Annotation[]> => {
@@ -96,6 +112,34 @@ export const db = {
     const existing = await db.getAnnotations(pdfId);
     const filtered = existing.filter((a) => a.id !== annotationId);
     const key = `${ANNOTATIONS_PREFIX}${pdfId}.json`;
-    await put(key, JSON.stringify(filtered), { contentType: "application/json" });
+    await put(key, JSON.stringify(filtered), { contentType: "application/json", access: "public" });
   },
 };
+
+async function addToIndex(id: string): Promise<void> {
+  try {
+    const indexBlob = await get(INDEX_KEY);
+    let ids: string[] = [];
+    if (indexBlob) {
+      const text = await indexBlob.text();
+      ids = JSON.parse(text);
+    }
+    if (!ids.includes(id)) {
+      ids.push(id);
+      await put(INDEX_KEY, JSON.stringify(ids), { contentType: "application/json", access: "public" });
+    }
+  } catch {
+    await put(INDEX_KEY, JSON.stringify([id]), { contentType: "application/json", access: "public" });
+  }
+}
+
+async function removeFromIndex(id: string): Promise<void> {
+  try {
+    const indexBlob = await get(INDEX_KEY);
+    if (!indexBlob) return;
+    const text = await indexBlob.text();
+    const ids: string[] = JSON.parse(text);
+    ids = ids.filter((i) => i !== id);
+    await put(INDEX_KEY, JSON.stringify(ids), { contentType: "application/json", access: "public" });
+  } catch {}
+}
