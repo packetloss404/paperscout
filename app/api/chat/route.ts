@@ -57,7 +57,7 @@ Instructions:
     messages.push({ role: 'user', content: message });
 
     const result = await generateText({
-      model: 'openai/gpt-4o-mini',
+      model: 'gpt-4o-mini',
       system: systemPrompt,
       messages,
     });
