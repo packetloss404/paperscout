@@ -1,4 +1,4 @@
-import { put, del, get } from "@vercel/blob";
+import { put, del, get, list } from "@vercel/blob";
 
 const JSON_BLOB_OPTIONS = {
   contentType: "application/json",
@@ -60,17 +60,32 @@ export const db = {
 
   getAllPDFs: async (): Promise<PDF[]> => {
     try {
-      const indexBlob = await get(INDEX_KEY, { access: "private", useCache: false });
-      if (!indexBlob) return [];
-      const indexText = await indexBlob.text();
-      const ids: string[] = JSON.parse(indexText);
       const pdfs: PDF[] = [];
-      for (const id of ids) {
-        const pdf = await db.getPDF(id);
-        if (pdf) pdfs.push(pdf);
+      let cursor: string | undefined;
+
+      do {
+        const page = await list({ prefix: PDF_PREFIX, cursor, limit: 1000 });
+        for (const blobMeta of page.blobs) {
+          try {
+            const blob = await get(blobMeta.pathname, { access: "private", useCache: false });
+            if (!blob) continue;
+            const text = await blob.text();
+            pdfs.push(JSON.parse(text) as PDF);
+          } catch (error) {
+            console.error(`Failed to read PDF blob ${blobMeta.pathname}:`, error);
+          }
+        }
+        cursor = page.cursor;
+      } while (cursor);
+
+      const deduped = new Map<string, PDF>();
+      for (const pdf of pdfs) {
+        deduped.set(pdf.id, pdf);
       }
-      return pdfs.sort((a, b) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime());
-    } catch {
+
+      return Array.from(deduped.values()).sort((a, b) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime());
+    } catch (error) {
+      console.error("Failed to list PDFs:", error);
       return [];
     }
   },

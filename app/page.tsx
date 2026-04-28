@@ -40,6 +40,20 @@ export default function HomePage() {
     setPdfs(pdfs.filter((p) => p.id !== id));
   };
 
+  const handleUploaded = async (id: string) => {
+    try {
+      const response = await fetch(`/api/pdf/${id}`);
+      if (response.ok) {
+        const pdf = await response.json();
+        setPdfs((current) => [pdf, ...current.filter((item) => item.id !== id)]);
+      }
+    } catch (error) {
+      console.error('Failed to load uploaded PDF:', error);
+    }
+
+    await loadPDFs();
+  };
+
   return (
     <main className="min-h-screen bg-white">
       {/* Header */}
@@ -103,7 +117,7 @@ export default function HomePage() {
               </p>
             </div>
           </div>
-          <PDFUploader onUploaded={loadPDFs} />
+          <PDFUploader onUploaded={handleUploaded} />
         </section>
 
         {/* Library Section */}
