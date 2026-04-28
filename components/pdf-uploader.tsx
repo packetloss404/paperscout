@@ -112,11 +112,11 @@ export function PDFUploader() {
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       onClick={() => !isProcessing && fileInputRef.current?.click()}
-      className={`relative border-2 border-dashed rounded-2xl p-16 text-center transition-all duration-300 select-none
+      className={`relative border-2 border-dashed rounded-xl p-12 text-center transition-all duration-200 select-none
         ${isProcessing ? 'cursor-default' : 'cursor-pointer'}
         ${isDragging 
-          ? 'border-primary bg-primary/5 shadow-lg scale-[1.02]' 
-          : 'border-border bg-gradient-to-br from-primary/5 to-accent/5 hover:border-primary/60 hover:shadow-md hover:from-primary/8 hover:to-accent/8'
+          ? 'border-indigo-400 bg-indigo-50 scale-[1.01]' 
+          : 'border-gray-300 bg-gray-50 hover:border-indigo-400 hover:bg-indigo-50/50'
         }
       `}
     >
@@ -129,42 +129,41 @@ export function PDFUploader() {
         disabled={isProcessing}
       />
 
-      <div className="inline-flex flex-col items-center gap-6">
+      <div className="inline-flex flex-col items-center gap-5">
         <div className="relative">
           {step === 'done' ? (
-            <div className="relative">
-              <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl animate-pulse" />
-              <CheckCircle2 className="w-16 h-16 text-primary relative z-10" />
+            <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center">
+              <CheckCircle2 className="w-8 h-8 text-green-600" />
             </div>
           ) : step === 'error' ? (
-            <Upload className="w-16 h-16 text-destructive" />
+            <div className="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center">
+              <Upload className="w-8 h-8 text-red-600" />
+            </div>
           ) : isProcessing ? (
-            <div className="relative">
-              <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl" />
-              <Loader2 className="w-16 h-16 text-primary animate-spin relative z-10" />
+            <div className="w-14 h-14 rounded-full bg-indigo-100 flex items-center justify-center">
+              <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
             </div>
           ) : (
-            <div className="relative group">
-              <div className="absolute inset-0 bg-primary/10 rounded-full blur-lg opacity-0 group-hover:opacity-100 transition-opacity" />
-              <Upload className="w-16 h-16 text-primary relative z-10" />
+            <div className="w-14 h-14 rounded-full bg-indigo-100 flex items-center justify-center">
+              <Upload className="w-8 h-8 text-indigo-600" />
             </div>
           )}
         </div>
 
-        <div className="space-y-2">
-          <p className={`text-lg font-semibold transition-colors ${step === 'error' ? 'text-destructive' : 'text-foreground'}`}>
+        <div className="space-y-1">
+          <p className={`text-base font-semibold ${step === 'error' ? 'text-red-600' : 'text-gray-900'}`}>
             {STEP_LABELS[step]}
           </p>
           {step === 'idle' && (
-            <p className="text-sm text-muted-foreground">or click to select a file</p>
+            <p className="text-sm text-gray-500">PDF files only</p>
           )}
           {step === 'error' && errorMsg && (
-            <p className="text-sm text-muted-foreground max-w-xs">{errorMsg}</p>
+            <p className="text-sm text-gray-500 max-w-xs">{errorMsg}</p>
           )}
         </div>
 
         {isProcessing && (
-          <div className="flex items-center gap-3 mt-2">
+          <div className="flex items-center gap-2">
             {(['extracting', 'uploading', 'done'] as Step[]).map((s, i) => {
               const steps: Step[] = ['extracting', 'uploading', 'done'];
               const currentIdx = steps.indexOf(step);
@@ -172,13 +171,13 @@ export function PDFUploader() {
               const done = thisIdx < currentIdx;
               const active = thisIdx === currentIdx;
               return (
-                <div key={s} className="flex items-center gap-3">
+                <div key={s} className="flex items-center gap-2">
                   <div
-                    className={`w-3 h-3 rounded-full transition-all ${
-                      done ? 'bg-primary scale-100' : active ? 'bg-primary animate-pulse scale-110' : 'bg-border'
+                    className={`w-2 h-2 rounded-full transition-all ${
+                      done ? 'bg-indigo-600' : active ? 'bg-indigo-600 animate-pulse' : 'bg-gray-300'
                     }`}
                   />
-                  {i < 2 && <div className="w-8 h-0.5 bg-gradient-to-r from-border to-transparent rounded-full" />}
+                  {i < 2 && <div className="w-6 h-px bg-gray-300" />}
                 </div>
               );
             })}
@@ -188,7 +187,7 @@ export function PDFUploader() {
         {step === 'error' && (
           <button
             onClick={(e) => { e.stopPropagation(); setStep('idle'); setErrorMsg(''); }}
-            className="mt-2 px-4 py-2 text-sm font-medium text-primary hover:text-accent transition-colors underline underline-offset-2 hover:no-underline"
+            className="text-sm font-medium text-indigo-600 hover:text-indigo-700 transition-colors"
           >
             Try again
           </button>
