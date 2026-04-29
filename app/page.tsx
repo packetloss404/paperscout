@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
+import { JsonImporter } from '@/components/json-importer';
 import { PDFCard } from '@/components/pdf-card';
 import { PDF } from '@/lib/db';
 import { Logo } from '@/components/logo';
-import { FileText, Sparkles, Zap } from 'lucide-react';
+import { FileJson, FileText, Sparkles, Zap } from 'lucide-react';
 
 const PDFUploader = dynamic(() => import('@/components/pdf-uploader').then(mod => mod.PDFUploader), {
   ssr: false,
@@ -65,9 +66,9 @@ export default function HomePage() {
               {pdfs.length} paper{pdfs.length !== 1 ? 's' : ''} in library
             </span>
             <div className="h-8 w-px bg-gray-200 hidden sm:block" />
-            <button className="px-4 py-2 text-sm font-medium text-indigo-600 hover:text-indigo-700 transition-colors">
-              Upgrade
-            </button>
+            <span className="text-sm font-medium text-indigo-600 hidden sm:block">
+              No login required
+            </span>
           </div>
         </div>
       </header>
@@ -98,6 +99,10 @@ export default function HomePage() {
                 <Zap className="w-4 h-4" />
                 Instant Processing
               </div>
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-100 text-slate-700 rounded-full text-sm font-medium">
+                <FileJson className="w-4 h-4" />
+                Exportable JSON
+              </div>
             </div>
           </div>
         </div>
@@ -113,9 +118,10 @@ export default function HomePage() {
                 Upload a Paper
               </h2>
               <p className="text-gray-500 text-sm mt-1">
-                Supports PDF files up to 50MB
+                Upload a PDF or import a previously exported PaperDrive JSON file
               </p>
             </div>
+            <JsonImporter onImported={handleUploaded} />
           </div>
           <PDFUploader onUploaded={handleUploaded} />
         </section>
