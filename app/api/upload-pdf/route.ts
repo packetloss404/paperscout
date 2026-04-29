@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
 import { processPDF } from '@/lib/pdf-workflow';
 
 export const maxDuration = 300;
@@ -18,16 +17,6 @@ export async function POST(request: NextRequest) {
 
     const title = fileName.replace(/\.pdf$/i, '');
 
-    await db.savePDF({
-      id: pdfId,
-      title,
-      fileName,
-      pageCount: pageCount || 1,
-      dateAdded: new Date(),
-      content: extractedText,
-      status: 'processing',
-    });
-
     const result = await processPDF(pdfId, title, extractedText, pageCount || 1);
 
     if (result.status === 'error') {
@@ -37,7 +26,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ pdfId, status: result.status, error: result.error });
+    return NextResponse.json({ pdfId, status: result.status, book: result.book });
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Upload failed';
     return NextResponse.json({ error: msg }, { status: 500 });

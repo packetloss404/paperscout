@@ -12,6 +12,7 @@ interface Message {
 interface AITutorPanelProps {
   pdfId: string;
   pdfTitle: string;
+  pdfContent: string;
 }
 
 const SUGGESTED_PROMPTS = [
@@ -21,7 +22,7 @@ const SUGGESTED_PROMPTS = [
   'Define key terms',
 ];
 
-export function AITutorPanel({ pdfId, pdfTitle }: AITutorPanelProps) {
+export function AITutorPanel({ pdfId, pdfTitle, pdfContent }: AITutorPanelProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -59,6 +60,8 @@ export function AITutorPanel({ pdfId, pdfTitle }: AITutorPanelProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           pdfId,
+          pdfTitle,
+          pdfContent,
           message: userMessage.content,
           history: messages,
         }),

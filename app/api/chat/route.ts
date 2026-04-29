@@ -1,34 +1,27 @@
 import { generateText } from 'ai';
 import { openai } from '@ai-sdk/openai';
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
 
 export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   try {
-    const { pdfId, message, history } = await request.json();
+    const { message, history, pdfTitle, pdfContent } = await request.json();
 
-    if (!pdfId || !message) {
+    if (!message || !pdfContent) {
       return NextResponse.json(
-        { error: 'Missing pdfId or message' },
+        { error: 'Missing message or PDF content' },
         { status: 400 }
       );
     }
 
-    // Get PDF content for context
-    const pdf = await db.getPDF(pdfId);
-    if (!pdf) {
-      return NextResponse.json({ error: 'PDF not found' }, { status: 404 });
-    }
-
     // Build context from PDF content
-    const pdfContext = pdf.content.slice(0, 15000); // Limit context size
+    const pdfContext = String(pdfContent).slice(0, 15000); // Limit context size
 
     // Build messages for the AI
     const systemPrompt = `You are a helpful AI assistant that answers questions about the following research paper/document.
 
-DOCUMENT TITLE: ${pdf.title}
+DOCUMENT TITLE: ${pdfTitle || 'Untitled paper'}
 
 DOCUMENT CONTENT:
 ${pdfContext}

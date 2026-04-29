@@ -2,9 +2,11 @@
 
 import { useRef, useState } from 'react';
 import { FileUp, Loader2 } from 'lucide-react';
+import { type PDF } from '@/lib/db';
+import { normalizeImportedBook } from '@/lib/local-library';
 
 interface JsonImporterProps {
-  onImported?: (pdfId: string) => void;
+  onImported?: (book: PDF) => void;
 }
 
 export function JsonImporter({ onImported }: JsonImporterProps) {
@@ -16,20 +18,9 @@ export function JsonImporter({ onImported }: JsonImporterProps) {
     try {
       const text = await file.text();
       const payload = JSON.parse(text);
-
-      const response = await fetch('/api/import-book', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Import failed: ${response.status}`);
-      }
-
-      const data = await response.json();
-      onImported?.(data.pdfId);
+      const book = normalizeImportedBook(payload);
+      if (!book) throw new Error('Invalid PaperDrive JSON file');
+      onImported?.(book);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Import failed';
       alert(message);

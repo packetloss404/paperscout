@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { PDF, Chapter, Annotation } from '@/lib/db';
+import { getLocalBook, loadLocalAnnotations, saveLocalAnnotations } from '@/lib/local-library';
 import { BookHeader } from '@/components/book-header';
 import { ChapterNav } from '@/components/chapter-nav';
 import { MarkdownRenderer } from '@/components/markdown-renderer';
@@ -38,45 +39,14 @@ export default function BookPage() {
   }, [pdfId]);
 
   const loadPDF = async () => {
-    try {
-      const response = await fetch(`/api/pdf/${pdfId}`);
-      if (response.ok) {
-        const data: PDF = await response.json();
-        setPdf(data);
-        setLoadError(data.status === 'error' ? 'This book failed to process.' : null);
-      } else if (response.status === 404) {
-        setLoadError(null);
-      } else {
-        setLoadError('Unable to load this book.');
-      }
-    } catch (error) {
-      console.error('Failed to load PDF:', error);
-      setLoadError('Unable to load this book.');
-    } finally {
-      setIsLoading(false);
-    }
+    const data = getLocalBook(pdfId);
+    setPdf(data);
+    setLoadError(data ? null : 'This book is not in your browser library. Import its PaperDrive JSON file from the home page.');
+    setIsLoading(false);
   };
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (!pdf || pdf.status === 'processing') {
-        loadPDF();
-      }
-    }, 1500);
-
-    return () => clearInterval(interval);
-  }, [pdfId, pdf?.status]);
-
   const loadAnnotations = async () => {
-    try {
-      const response = await fetch(`/api/annotations/${pdfId}`);
-      if (response.ok) {
-        const data = await response.json();
-        setAnnotations(data);
-      }
-    } catch (error) {
-      console.error('Failed to load annotations:', error);
-    }
+    setAnnotations(loadLocalAnnotations(pdfId));
   };
 
   const handleAddAnnotation = async (
@@ -84,37 +54,26 @@ export default function BookPage() {
     type: 'highlight' | 'annotation',
     text: string
   ) => {
-    try {
-      const response = await fetch(`/api/annotations/${pdfId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paragraphIndex, type, text }),
-      });
-
-      if (response.ok) {
-        const annotation = await response.json();
-        setAnnotations([...annotations, annotation]);
-      }
-    } catch (error) {
-      console.error('Failed to save annotation:', error);
-    }
+    const annotation: Annotation = {
+      id: crypto.randomUUID(),
+      pdfId,
+      paragraphIndex,
+      type,
+      text,
+      createdAt: new Date().toISOString(),
+    };
+    const next = [...annotations, annotation];
+    setAnnotations(next);
+    saveLocalAnnotations(pdfId, next);
   };
 
   const handleDeleteAnnotation = async (annotationId: string) => {
-    try {
-      await fetch(`/api/annotations/${pdfId}`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ annotationId }),
-      });
-
-      setAnnotations(annotations.filter((a) => a.id !== annotationId));
-    } catch (error) {
-      console.error('Failed to delete annotation:', error);
-    }
+    const next = annotations.filter((a) => a.id !== annotationId);
+    setAnnotations(next);
+    saveLocalAnnotations(pdfId, next);
   };
 
-  const stillLoading = isLoading || !pdf || pdf.status === 'processing';
+  const stillLoading = isLoading;
 
   if (stillLoading) {
     return (
@@ -277,7 +236,7 @@ export default function BookPage() {
       </div>
 
       {/* AI Tutor Panel - Right margin */}
-      <AITutorPanel pdfId={pdfId} pdfTitle={pdf.title} />
+      <AITutorPanel pdfId={pdfId} pdfTitle={pdf.title} pdfContent={pdf.content || ''} />
     </main>
   );
 }

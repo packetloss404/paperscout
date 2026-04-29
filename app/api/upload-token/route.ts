@@ -1,28 +1,8 @@
-import { handleUpload, type HandleUploadBody } from '@vercel/blob/client';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
-export async function POST(request: NextRequest) {
-  const body = (await request.json()) as HandleUploadBody;
-
-  try {
-    const jsonResponse = await handleUpload({
-      body,
-      request,
-      onBeforeGenerateToken: async () => ({
-        allowedContentTypes: ['application/pdf'],
-        maximumSizeInBytes: 50 * 1024 * 1024, // 50MB
-        access: 'public',
-      }),
-      onUploadCompleted: async () => {
-        // Called after upload completes
-      },
-    });
-
-    return NextResponse.json(jsonResponse);
-  } catch (error) {
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 400 }
-    );
-  }
+export async function POST() {
+  return NextResponse.json(
+    { error: 'Blob uploads are disabled. PDFs are processed from browser-extracted text.' },
+    { status: 410 }
+  );
 }

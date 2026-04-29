@@ -4,6 +4,7 @@ import { useState, useRef } from 'react';
 import { Upload, Loader2, CheckCircle2 } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
 import { v4 as uuidv4 } from 'uuid';
+import { type PDF } from '@/lib/db';
 
 // Set up the worker - use local copy instead of CDN
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
@@ -20,7 +21,7 @@ const STEP_LABELS: Record<Step, string> = {
 };
 
 interface PDFUploaderProps {
-  onUploaded?: (pdfId: string) => void;
+  onUploaded?: (book: PDF) => void;
 }
 
 export function PDFUploader({ onUploaded }: PDFUploaderProps) {
@@ -102,8 +103,11 @@ export function PDFUploader({ onUploaded }: PDFUploaderProps) {
         throw new Error(errorData.error || `Upload failed: ${response.status}`);
       }
 
+      const data = await response.json();
+      if (!data.book) throw new Error('Processing finished without a book payload');
+
       setStep('done');
-      onUploaded?.(pdfId);
+      onUploaded?.(data.book);
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Unknown error';
       setErrorMsg(msg);

@@ -1,12 +1,3 @@
-import { put, del, get, list } from "@vercel/blob";
-
-const JSON_BLOB_OPTIONS = {
-  contentType: "application/json",
-  access: "private" as const,
-  addRandomSuffix: false,
-  allowOverwrite: true,
-};
-
 export interface PDF {
   id: string;
   title: string;
@@ -35,133 +26,50 @@ export interface Annotation {
   createdAt: string;
 }
 
-const PDF_PREFIX = "pdfs/";
-const ANNOTATIONS_PREFIX = "annotations/";
-const INDEX_KEY = "pdf-index.json";
+// Server-side fallback only. The hackathon app stores books in browser localStorage
+// so demos do not depend on auth, databases, or paid Vercel storage.
+const pdfStorage = new Map<string, PDF>();
+const annotationStorage = new Map<string, Annotation[]>();
 
 export const db = {
   savePDF: async (pdf: PDF): Promise<void> => {
-    const key = `${PDF_PREFIX}${pdf.id}.json`;
-    await put(key, JSON.stringify(pdf), JSON_BLOB_OPTIONS);
-    await addToIndex(pdf.id);
+    pdfStorage.set(pdf.id, pdf);
   },
 
   getPDF: async (id: string): Promise<PDF | null> => {
-    try {
-      const key = `${PDF_PREFIX}${id}.json`;
-      const blob = await get(key, { access: "private", useCache: false });
-      if (!blob) return null;
-      const text = await blob.text();
-      return JSON.parse(text) as PDF;
-    } catch {
-      return null;
-    }
+    return pdfStorage.get(id) || null;
   },
 
   getAllPDFs: async (): Promise<PDF[]> => {
-    try {
-      const pdfs: PDF[] = [];
-      let cursor: string | undefined;
-
-      do {
-        const page = await list({ prefix: PDF_PREFIX, cursor, limit: 1000 });
-        for (const blobMeta of page.blobs) {
-          try {
-            const blob = await get(blobMeta.pathname, { access: "private", useCache: false });
-            if (!blob) continue;
-            const text = await blob.text();
-            pdfs.push(JSON.parse(text) as PDF);
-          } catch (error) {
-            console.error(`Failed to read PDF blob ${blobMeta.pathname}:`, error);
-          }
-        }
-        cursor = page.cursor;
-      } while (cursor);
-
-      const deduped = new Map<string, PDF>();
-      for (const pdf of pdfs) {
-        deduped.set(pdf.id, pdf);
-      }
-
-      return Array.from(deduped.values()).sort((a, b) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime());
-    } catch (error) {
-      console.error("Failed to list PDFs:", error);
-      return [];
-    }
+    return Array.from(pdfStorage.values()).sort(
+      (a, b) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime()
+    );
   },
 
   deletePDF: async (id: string): Promise<void> => {
-    try {
-      await del(`${PDF_PREFIX}${id}.json`);
-      await removeFromIndex(id);
-    } catch {}
+    pdfStorage.delete(id);
+    annotationStorage.delete(id);
   },
 
-  updatePDFStatus: async (
-    id: string,
-    status: PDF["status"]
-  ): Promise<void> => {
-    const pdf = await db.getPDF(id);
-    if (pdf) {
-      pdf.status = status;
-      await db.savePDF(pdf);
-    }
+  updatePDFStatus: async (id: string, status: PDF["status"]): Promise<void> => {
+    const pdf = pdfStorage.get(id);
+    if (pdf) pdfStorage.set(id, { ...pdf, status });
   },
 
   saveAnnotation: async (annotation: Annotation): Promise<void> => {
-    const existing = await db.getAnnotations(annotation.pdfId);
-    existing.push(annotation);
-    const key = `${ANNOTATIONS_PREFIX}${annotation.pdfId}.json`;
-    await put(key, JSON.stringify(existing), JSON_BLOB_OPTIONS);
+    const annotations = annotationStorage.get(annotation.pdfId) || [];
+    annotationStorage.set(annotation.pdfId, [...annotations, annotation]);
   },
 
   getAnnotations: async (pdfId: string): Promise<Annotation[]> => {
-    try {
-      const key = `${ANNOTATIONS_PREFIX}${pdfId}.json`;
-      const blob = await get(key, { access: "private", useCache: false });
-      if (!blob) return [];
-      const text = await blob.text();
-      return JSON.parse(text) as Annotation[];
-    } catch {
-      return [];
-    }
+    return annotationStorage.get(pdfId) || [];
   },
 
-  deleteAnnotation: async (
-    pdfId: string,
-    annotationId: string
-  ): Promise<void> => {
-    const existing = await db.getAnnotations(pdfId);
-    const filtered = existing.filter((a) => a.id !== annotationId);
-    const key = `${ANNOTATIONS_PREFIX}${pdfId}.json`;
-    await put(key, JSON.stringify(filtered), JSON_BLOB_OPTIONS);
+  deleteAnnotation: async (pdfId: string, annotationId: string): Promise<void> => {
+    const annotations = annotationStorage.get(pdfId) || [];
+    annotationStorage.set(
+      pdfId,
+      annotations.filter((annotation) => annotation.id !== annotationId)
+    );
   },
 };
-
-async function addToIndex(id: string): Promise<void> {
-  try {
-    const indexBlob = await get(INDEX_KEY, { access: "private", useCache: false });
-    let ids: string[] = [];
-    if (indexBlob) {
-      const text = await indexBlob.text();
-      ids = JSON.parse(text);
-    }
-    if (!ids.includes(id)) {
-      ids.push(id);
-      await put(INDEX_KEY, JSON.stringify(ids), JSON_BLOB_OPTIONS);
-    }
-  } catch {
-    await put(INDEX_KEY, JSON.stringify([id]), JSON_BLOB_OPTIONS);
-  }
-}
-
-async function removeFromIndex(id: string): Promise<void> {
-  try {
-    const indexBlob = await get(INDEX_KEY, { access: "private", useCache: false });
-    if (!indexBlob) return;
-    const text = await indexBlob.text();
-    let ids: string[] = JSON.parse(text);
-    ids = ids.filter((i) => i !== id);
-    await put(INDEX_KEY, JSON.stringify(ids), JSON_BLOB_OPTIONS);
-  } catch {}
-}

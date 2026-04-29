@@ -1,6 +1,6 @@
 import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
-import { db } from "@/lib/db";
+import { type PDF } from "@/lib/db";
 
 interface ChapterResult {
   id: string;
@@ -14,26 +14,9 @@ export async function processPDF(
   title: string,
   rawText: string,
   pageCount: number
-): Promise<{ status: string; chapters?: ChapterResult[]; error?: string }> {
+): Promise<{ status: string; book?: PDF; error?: string }> {
   try {
-    await db.updatePDFStatus(pdfId, "processing");
-
     const chapterMap = await analyzeAndChunk(rawText);
-
-    await db.savePDF({
-      id: pdfId,
-      title,
-      fileName: title,
-      pageCount,
-      dateAdded: new Date(),
-      content: rawText,
-      chapters: chapterMap.map((ch, i) => ({
-        id: `ch-${i + 1}`,
-        title: ch.title,
-        content: ch.title,
-      })),
-      status: "processing",
-    });
 
     const processedChapters = await Promise.all(
       chapterMap.map((chunk, i) =>
@@ -47,12 +30,12 @@ export async function processPDF(
       )
     );
 
-    await db.savePDF({
+    const book: PDF = {
       id: pdfId,
       title,
-      fileName: title,
+      fileName: `${title}.pdf`,
       pageCount,
-      dateAdded: new Date(),
+      dateAdded: new Date().toISOString(),
       content: rawText,
       chapters: processedChapters.map((ch, i) => ({
         id: `ch-${i + 1}`,
@@ -60,13 +43,12 @@ export async function processPDF(
         content: ch.markdown,
       })),
       status: "complete",
-    });
+    };
 
-    return { status: "complete", chapters: processedChapters };
+    return { status: "complete", book };
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Processing failed";
     console.error("processPDF error:", msg);
-    await db.updatePDFStatus(pdfId, "error");
     return { status: "error", error: msg };
   }
 }

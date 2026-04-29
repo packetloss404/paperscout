@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { JsonImporter } from '@/components/json-importer';
 import { PDFCard } from '@/components/pdf-card';
 import { PDF } from '@/lib/db';
+import { deleteLocalBook, loadLocalBooks, upsertLocalBook } from '@/lib/local-library';
 import { Logo } from '@/components/logo';
 import { FileJson, FileText, Sparkles, Zap } from 'lucide-react';
 
@@ -18,41 +19,16 @@ export default function HomePage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    loadPDFs();
-    const interval = setInterval(loadPDFs, 2000);
-    return () => clearInterval(interval);
+    setPdfs(loadLocalBooks());
+    setIsLoading(false);
   }, []);
 
-  const loadPDFs = async () => {
-    try {
-      const response = await fetch('/api/pdfs');
-      if (response.ok) {
-        const data = await response.json();
-        setPdfs(data);
-      }
-    } catch (error) {
-      console.error('Failed to load PDFs:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleDeletePDF = (id: string) => {
-    setPdfs(pdfs.filter((p) => p.id !== id));
+    setPdfs(deleteLocalBook(id));
   };
 
-  const handleUploaded = async (id: string) => {
-    try {
-      const response = await fetch(`/api/pdf/${id}`);
-      if (response.ok) {
-        const pdf = await response.json();
-        setPdfs((current) => [pdf, ...current.filter((item) => item.id !== id)]);
-      }
-    } catch (error) {
-      console.error('Failed to load uploaded PDF:', error);
-    }
-
-    await loadPDFs();
+  const handleUploaded = (book: PDF) => {
+    setPdfs(upsertLocalBook(book));
   };
 
   return (

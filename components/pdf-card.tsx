@@ -19,7 +19,6 @@ export function PDFCard({ pdf, onDelete }: PDFCardProps) {
     if (confirm('Are you sure you want to delete this paper?')) {
       setIsDeleting(true);
       try {
-        await fetch(`/api/pdf/${pdf.id}`, { method: 'DELETE' });
         onDelete(pdf.id);
       } catch (error) {
         console.error('Delete error:', error);
@@ -33,15 +32,11 @@ export function PDFCard({ pdf, onDelete }: PDFCardProps) {
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      const response = await fetch(`/api/pdf/${pdf.id}`);
-      if (!response.ok) throw new Error('Could not export paper');
-
-      const book = await response.json();
       const exportPayload = {
         type: 'paperdrive.book',
         version: 1,
         exportedAt: new Date().toISOString(),
-        book,
+        book: pdf,
       };
 
       const blob = new Blob([JSON.stringify(exportPayload, null, 2)], {
