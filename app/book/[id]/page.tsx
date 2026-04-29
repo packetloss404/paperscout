@@ -9,7 +9,7 @@ import { ChapterNav } from '@/components/chapter-nav';
 import { MarkdownRenderer } from '@/components/markdown-renderer';
 import { AITutorPanel } from '@/components/ai-tutor-panel';
 import { LeftMargin } from '@/components/left-margin';
-import { AlertCircle, BookOpen } from 'lucide-react';
+import { AlertCircle, BookOpen, BrainCircuit, FlaskConical, GraduationCap, Highlighter, Lightbulb, Network, ScrollText } from 'lucide-react';
 
 export default function BookPage() {
   const params = useParams();
@@ -147,9 +147,16 @@ export default function BookPage() {
   const currentChapterIndex = selectedChapter
     ? pdf.chapters.findIndex((c) => c.id === selectedChapter.id)
     : 0;
+  const chapterContent = selectedChapter?.content || '';
+  const studySignals = [
+    { label: 'Big Idea', active: chapterContent.includes('[Big Idea]'), icon: Lightbulb },
+    { label: 'Concept Map', active: chapterContent.includes('Concept Map'), icon: Network },
+    { label: 'Tutor Lens', active: chapterContent.includes('[Tutor Lens]'), icon: BrainCircuit },
+    { label: 'Quiz', active: chapterContent.includes('Check Your Understanding'), icon: GraduationCap },
+  ];
 
   return (
-    <main className="min-h-screen bg-white flex flex-col">
+    <main className="min-h-screen bg-[#f6efe3] text-stone-950">
       <BookHeader
         title={pdf.title}
         pageCount={pdf.pageCount}
@@ -157,25 +164,17 @@ export default function BookPage() {
         totalChapters={pdf.chapters.length}
       />
 
-      {/* Main Reading Area */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Margin */}
-        <LeftMargin
-          selectedParagraphIndex={selectedParagraphIndex}
-          annotations={annotations}
-          onAddAnnotation={handleAddAnnotation}
-          onDeleteAnnotation={handleDeleteAnnotation}
-          contentRef={contentRef}
-        />
+      <div className="relative overflow-hidden">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_8%,rgba(251,191,36,0.25),transparent_28%),radial-gradient(circle_at_92%_18%,rgba(79,70,229,0.16),transparent_32%),linear-gradient(120deg,rgba(255,255,255,0.45),transparent_42%)]" />
+        <div className="pointer-events-none absolute inset-0 opacity-[0.08] [background-image:linear-gradient(#2b2118_1px,transparent_1px),linear-gradient(90deg,#2b2118_1px,transparent_1px)] [background-size:48px_48px]" />
 
-        {/* Sidebar - 20% width */}
-        <aside className="w-64 border-r border-gray-200 bg-gray-50 overflow-y-auto flex-shrink-0">
-          <div className="p-5 sticky top-0 bg-white border-b border-gray-200 z-20">
-            <h2 className="text-xs font-bold text-gray-900 uppercase tracking-widest">
-              Contents
-            </h2>
-          </div>
-          <nav className="p-4">
+        <div className="relative mx-auto grid max-w-[1600px] grid-cols-1 gap-6 px-4 py-6 lg:px-6 xl:grid-cols-[280px_minmax(0,1fr)_300px]">
+          <aside className="order-2 rounded-[1.75rem] border border-stone-900/10 bg-white/70 p-4 shadow-[0_20px_80px_rgba(54,38,22,0.10)] backdrop-blur-xl xl:order-1 xl:sticky xl:top-24 xl:h-[calc(100vh-7rem)] xl:overflow-y-auto">
+            <div className="mb-4 rounded-2xl bg-[#1d160f] p-4 text-white">
+              <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-amber-200">Study Map</p>
+              <h2 className="mt-2 text-lg font-semibold leading-tight">{pdf.chapters.length} teachable chapters</h2>
+              <p className="mt-2 text-xs leading-relaxed text-stone-300">Navigate the AI-generated textbook structure.</p>
+            </div>
             <ChapterNav
               chapters={pdf.chapters}
               onSelectChapter={(chapter) => {
@@ -183,61 +182,115 @@ export default function BookPage() {
               }}
               isCollapsed={false}
             />
-          </nav>
-        </aside>
+          </aside>
 
-        {/* Main Content - 80% width */}
-        <div className="flex-1 overflow-y-auto bg-gradient-to-br from-white via-white to-gray-50">
-          <article
-            ref={contentRef}
-            className="max-w-4xl mx-auto px-12 py-16 prose-container"
-            onClick={(e) => {
-              const target = e.target as HTMLElement;
-              if (target.tagName === 'P') {
-                const paragraphs = contentRef.current?.querySelectorAll('p') || [];
-                const index = Array.from(paragraphs).indexOf(target);
-                setSelectedParagraphIndex(index);
-              }
-            }}
-          >
+          <section className="order-1 overflow-hidden rounded-[2rem] border border-stone-900/10 bg-[#fffaf1] shadow-[0_30px_120px_rgba(54,38,22,0.16)] xl:order-2">
             {selectedChapter && (
               <>
-                {/* Chapter Header */}
-                <header className="mb-12 pb-10 border-b-2 border-gray-200">
-                  <div className="flex items-center gap-3 mb-6">
-                    <span className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-indigo-100 font-bold text-indigo-600">
-                      {currentChapterIndex + 1}
-                    </span>
-                    <div>
-                      <p className="text-xs font-semibold text-indigo-600 uppercase tracking-wide">
-                        Chapter {currentChapterIndex + 1}
-                      </p>
-                      <p className="text-xs text-gray-600">
-                        of {pdf.chapters.length}
-                      </p>
+                <div className="relative overflow-hidden border-b border-stone-200 bg-[#21170f] px-8 py-10 text-white md:px-12">
+                  <div className="absolute -right-12 -top-20 h-64 w-64 rounded-full bg-amber-300/20 blur-3xl" />
+                  <div className="absolute bottom-0 left-0 h-px w-full bg-gradient-to-r from-transparent via-amber-200/60 to-transparent" />
+                  <div className="relative max-w-4xl">
+                    <div className="mb-6 flex flex-wrap items-center gap-3">
+                      <span className="inline-flex items-center gap-2 rounded-full border border-amber-200/30 bg-amber-200/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.24em] text-amber-100">
+                        <SparklesBadge /> Study Edition
+                      </span>
+                      <span className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs text-stone-200">
+                        Chapter {currentChapterIndex + 1} of {pdf.chapters.length}
+                      </span>
+                      <span className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs text-stone-200">
+                        {annotations.length} margin notes
+                      </span>
                     </div>
+                    <h1 className="max-w-3xl text-balance text-4xl font-black leading-[0.98] tracking-tight md:text-6xl">
+                      {selectedChapter.title}
+                    </h1>
+                    <p className="mt-5 max-w-2xl text-base leading-7 text-stone-300 md:text-lg">
+                      Generated as an interactive lesson with learning objectives, concept maps, tutor callouts, and self-check questions.
+                    </p>
                   </div>
-                  <h1 className="text-4xl font-bold text-gray-900 leading-tight">
-                    {selectedChapter.title}
-                  </h1>
-                </header>
-
-                {/* Content */}
-                <div className="space-y-6 leading-relaxed">
-                  <MarkdownRenderer content={selectedChapter.content} />
                 </div>
 
-                {/* Bottom spacing */}
-                <div className="h-32" />
+                <div className="grid grid-cols-[4rem_minmax(0,1fr)] gap-0 md:grid-cols-[5rem_minmax(0,1fr)]">
+                  <LeftMargin
+                    selectedParagraphIndex={selectedParagraphIndex}
+                    annotations={annotations}
+                    onAddAnnotation={handleAddAnnotation}
+                    onDeleteAnnotation={handleDeleteAnnotation}
+                    contentRef={contentRef}
+                  />
+                  <article
+                    ref={contentRef}
+                    className="min-w-0 px-5 py-10 md:px-12 md:py-14"
+                    onClick={(e) => {
+                      const target = e.target as HTMLElement;
+                      if (target.tagName === 'P') {
+                        const paragraphs = contentRef.current?.querySelectorAll('p') || [];
+                        const index = Array.from(paragraphs).indexOf(target);
+                        setSelectedParagraphIndex(index);
+                      }
+                    }}
+                  >
+                    <MarkdownRenderer content={selectedChapter.content} />
+                    <div className="h-24" />
+                  </article>
+                </div>
               </>
             )}
-          </article>
+          </section>
+
+          <aside className="order-3 hidden space-y-4 lg:block xl:sticky xl:top-24 xl:h-[calc(100vh-7rem)] xl:overflow-y-auto">
+            <div className="rounded-[1.75rem] border border-stone-900/10 bg-white/75 p-5 shadow-[0_20px_80px_rgba(54,38,22,0.10)] backdrop-blur-xl">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="rounded-2xl bg-amber-100 p-3 text-amber-800">
+                  <BrainCircuit className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-stone-500">AI Artifacts</p>
+                  <h3 className="font-semibold text-stone-950">Study Toolkit</h3>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {studySignals.map((signal) => {
+                  const Icon = signal.icon;
+                  return (
+                    <div key={signal.label} className="flex items-center justify-between rounded-2xl border border-stone-200 bg-[#fffaf1] px-3 py-3">
+                      <div className="flex items-center gap-3">
+                        <Icon className="h-4 w-4 text-stone-600" />
+                        <span className="text-sm font-medium text-stone-800">{signal.label}</span>
+                      </div>
+                      <span className={`h-2.5 w-2.5 rounded-full ${signal.active ? 'bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.12)]' : 'bg-stone-300'}`} />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="rounded-[1.75rem] border border-stone-900/10 bg-[#1d160f] p-5 text-white shadow-[0_20px_80px_rgba(54,38,22,0.14)]">
+              <div className="flex items-center gap-3">
+                <Highlighter className="h-5 w-5 text-amber-200" />
+                <h3 className="font-semibold">Margin Mode</h3>
+              </div>
+              <p className="mt-3 text-sm leading-6 text-stone-300">Click any paragraph to attach highlights or notes. Export the book JSON when you want to carry the study edition elsewhere.</p>
+            </div>
+
+            <div className="rounded-[1.75rem] border border-stone-900/10 bg-white/75 p-5 shadow-[0_20px_80px_rgba(54,38,22,0.10)] backdrop-blur-xl">
+              <div className="flex items-center gap-3">
+                <FlaskConical className="h-5 w-5 text-indigo-700" />
+                <h3 className="font-semibold text-stone-950">Reader Labs</h3>
+              </div>
+              <p className="mt-3 text-sm leading-6 text-stone-600">Ask the AI tutor to translate equations, critique assumptions, or turn the current chapter into flashcards.</p>
+            </div>
+          </aside>
         </div>
       </div>
 
-      {/* AI Tutor Panel - Right margin */}
       <AITutorPanel pdfId={pdfId} pdfTitle={pdf.title} pdfContent={pdf.content || ''} />
     </main>
   );
+}
+
+function SparklesBadge() {
+  return <ScrollText className="h-3 w-3" />;
 }
 

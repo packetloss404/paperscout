@@ -3,9 +3,8 @@ import { openai } from "@ai-sdk/openai";
 import { type PDF } from "@/lib/db";
 
 interface ChapterResult {
-  id: string;
   title: string;
-  content: string;
+  markdown: string;
   originalText: string;
 }
 
@@ -56,15 +55,19 @@ export async function processPDF(
 async function analyzeAndChunk(text: string) {
   const { text: chunked } = await generateText({
     model: openai("gpt-4o-mini"),
-    system: `You are a research paper analyzer. Your job is to:
-1. Identify the logical chapters/sections of the paper based on content structure
-2. Extract a good title for each chapter (keep it short, 3-8 words)
-3. Return a JSON array of chapters with their titles and the text content for each
+    system: `You are PaperDrive's research cartographer. Your job is to turn raw PDF text into the chapter plan for a premium interactive textbook.
+
+Tasks:
+1. Identify the logical sections of the paper based on meaning, not just headings
+2. Extract a strong title for each chapter (short, specific, 3-8 words)
+3. Keep each chapter coherent enough for an AI tutor to teach
+4. Return a JSON array of chapters with title and text
 
 Rules:
 - Split by major sections: Introduction, Methods, Results, Discussion, Conclusion, etc.
-- Also split long sections into subsections if needed
-- Include chapter titles that are descriptive
+- Merge tiny fragments into useful teaching chapters
+- Split long sections into teachable subsections when needed
+- Prefer titles that sound like textbook sections, not PDF debris
 - Preserve ALL content including mathematical notation (keep $...$ and $$...$$ LaTeX intact)
 - Preserve code snippets, figures references, table references
 - Return EXACTLY this JSON format (no markdown code blocks, just raw JSON):
@@ -90,21 +93,53 @@ async function convertChapter(
 ): Promise<{ title: string; markdown: string; originalText: string }> {
   const { text: markdown } = await generateText({
     model: openai("gpt-4o-mini"),
-    system: `You are an academic paper formatter. Convert raw extracted text into clean Markdown.
+    system: `You are PaperDrive's AI textbook author. Convert raw research paper text into a vivid, teachable Markdown chapter that feels like a premium study edition, not a plain summary.
 
 Rules:
-- Use proper Markdown headings (# for chapter title, ## for sections)
-- Convert lists to proper Markdown lists
-- Keep LaTeX math as-is: $inline$ and $$display$$ formulas
-- Mark figures as: ![Figure N: description](fig-n)
-- Mark tables as: Table N: description
-- Preserve citations in [AuthorYear] format
-- Break long paragraphs into readable chunks
-- Add section headers where logical (Background, Methods, Results, etc.)
-- Keep the content accurate - do not add information not in the source
+- Be faithful to the source. Do not invent claims, numbers, citations, or equations.
+- Rewrite for comprehension: explain the paper as a textbook chapter for a smart reader new to the topic.
+- Use strong Markdown structure with #, ##, ### headings.
+- Keep LaTeX math as-is: $inline$ and $$display$$ formulas.
+- Preserve citations, figure references, table references, and important terminology.
+- Convert messy extracted text into polished paragraphs, lists, tables, and callouts.
 
-Return ONLY the converted Markdown content, no explanations.`,
-    prompt: `Convert this chapter to clean Markdown:\n\nTitle: ${title}\n\n${text.slice(0, 8000)}`,
+Required chapter structure:
+# ${title}
+
+> [Big Idea] One crisp paragraph explaining what this chapter teaches and why it matters.
+
+## Learning Objectives
+- 3-5 concrete things the reader will understand after this chapter.
+
+## Concept Map
+- Use 4-7 bullets in the form **Concept** -> relationship -> **Concept**.
+
+## Guided Walkthrough
+Explain the source content in a clear, paced way. Use short paragraphs and subheadings.
+
+## Evidence and Details
+Preserve the paper's important methods, assumptions, measurements, results, and caveats.
+
+## Math and Notation
+Include this only if math/formulas/notation appear in the source. Explain what the symbols mean.
+
+## Tutor Lens
+Use 2-4 blockquotes formatted exactly like this:
+> [Tutor Lens] A useful insight, warning, intuition, or interpretation anchored in the source.
+
+## Check Your Understanding
+Write 3-5 questions. Include a short answer after each question.
+
+## Glossary
+Define 4-8 important terms from the chapter. Omit if the source has too few terms.
+
+Style:
+- Make it feel premium and useful.
+- Prefer clarity over density.
+- Use bold labels and visual hierarchy.
+- Avoid generic filler like "This chapter discusses".
+- Return ONLY the converted Markdown content, no explanations.`,
+    prompt: `Create a premium PaperDrive study-edition chapter from this source text.\n\nChapter ${index} of ${total}: ${title}\n\nSOURCE TEXT:\n${text.slice(0, 12000)}`,
   });
 
   return {

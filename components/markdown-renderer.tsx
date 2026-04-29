@@ -10,37 +10,17 @@ interface MarkdownRendererProps {
   onSelectText?: (text: string, index: number) => void;
 }
 
-export function MarkdownRenderer({
-  content,
-  onSelectText,
-}: MarkdownRendererProps) {
+export function MarkdownRenderer({ content, onSelectText }: MarkdownRendererProps) {
   const handleTextSelection = () => {
     const selection = window.getSelection();
     if (selection && selection.toString()) {
-      const selectedText = selection.toString();
-      onSelectText?.(selectedText, 0);
+      onSelectText?.(selection.toString(), 0);
     }
   };
 
   return (
     <div
-      className="prose prose-lg max-w-none dark:prose-invert
-        prose-headings:font-semibold prose-headings:text-foreground prose-headings:mt-10 prose-headings:mb-5
-        prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg
-        prose-p:text-foreground prose-p:leading-[1.8] prose-p:text-base prose-p:tracking-wide
-        prose-a:text-primary prose-a:hover:underline prose-a:font-medium
-        prose-code:bg-muted prose-code:text-foreground prose-code:px-2 prose-code:py-1 prose-code:rounded prose-code:text-sm
-        prose-pre:bg-muted prose-pre:border prose-pre:border-border prose-pre:rounded-xl prose-pre:overflow-x-auto prose-pre:p-4
-        prose-blockquote:border-l-4 prose-blockquote:border-l-primary prose-blockquote:text-muted-foreground prose-blockquote:italic prose-blockquote:bg-muted/30 prose-blockquote:rounded-r-lg prose-blockquote:py-2 prose-blockquote:px-4
-        prose-strong:font-semibold prose-strong:text-foreground
-        prose-em:italic prose-em:text-foreground
-        prose-ol:list-decimal prose-ol:list-inside prose-ol:space-y-3
-        prose-ul:list-disc prose-ul:list-inside prose-ul:space-y-3
-        prose-li:text-foreground prose-li:leading-relaxed
-        prose-hr:border-border prose-hr:my-10
-        [&_.math-display]:overflow-x-auto [&_.math-display]:my-4
-        [&_.math-inline]:mx-1
-      "
+      className="paperdrive-markdown max-w-none text-stone-900 [&_.katex-display]:my-8 [&_.katex-display]:overflow-x-auto [&_.katex-display]:rounded-2xl [&_.katex-display]:border [&_.katex-display]:border-amber-200 [&_.katex-display]:bg-amber-50/70 [&_.katex-display]:px-6 [&_.katex-display]:py-5"
       onMouseUp={handleTextSelection}
     >
       <ReactMarkdown
@@ -48,34 +28,78 @@ export function MarkdownRenderer({
         rehypePlugins={[rehypeKatex]}
         components={{
           h1: ({ node, ...props }) => (
-            <h1 className="text-3xl font-bold mt-10 mb-5 text-balance" {...props} />
-          ),
-          h2: ({ node, ...props }) => (
-            <h2 className="text-2xl font-bold mt-8 mb-4 text-balance" {...props} />
-          ),
-          h3: ({ node, ...props }) => (
-            <h3 className="text-xl font-bold mt-6 mb-3" {...props} />
-          ),
-          p: ({ node, ...props }) => (
-            <p className="my-6 leading-[1.85] text-foreground/90 text-base tracking-wide" {...props} />
-          ),
-          li: ({ node, ...props }) => (
-            <li className="my-2 ml-6 text-foreground/90" {...props} />
-          ),
-          ul: ({ node, ...props }) => (
-            <ul className="list-disc list-inside space-y-2 my-4" {...props} />
-          ),
-          ol: ({ node, ...props }) => (
-            <ol className="list-decimal list-inside space-y-2 my-4" {...props} />
-          ),
-          code: ({ node, inline, ...props }) => (
-            <code
-              className={inline ? 'bg-muted px-2 py-1 rounded text-sm font-mono text-primary' : 'font-mono'}
+            <h1
+              className="mb-8 mt-2 max-w-3xl text-balance font-serif text-4xl font-black leading-tight tracking-tight text-stone-950 md:text-5xl"
               {...props}
             />
           ),
+          h2: ({ node, ...props }) => (
+            <h2
+              className="group relative mb-5 mt-14 border-t border-stone-200 pt-8 text-2xl font-black tracking-tight text-stone-950 md:text-3xl"
+              {...props}
+            />
+          ),
+          h3: ({ node, ...props }) => (
+            <h3 className="mb-3 mt-8 text-xl font-bold text-stone-900" {...props} />
+          ),
+          p: ({ node, ...props }) => (
+            <p
+              className="my-6 max-w-3xl font-serif text-[18px] leading-9 text-stone-800 md:text-[19px]"
+              {...props}
+            />
+          ),
+          ul: ({ node, ...props }) => (
+            <ul className="my-6 max-w-3xl space-y-3 rounded-2xl border border-stone-200 bg-white/60 p-5 shadow-sm" {...props} />
+          ),
+          ol: ({ node, ...props }) => (
+            <ol className="my-6 max-w-3xl list-decimal space-y-3 rounded-2xl border border-stone-200 bg-white/60 p-5 pl-10 shadow-sm" {...props} />
+          ),
+          li: ({ node, ...props }) => (
+            <li className="pl-1 text-[15px] leading-7 text-stone-800 marker:text-amber-600" {...props} />
+          ),
+          strong: ({ node, ...props }) => (
+            <strong className="font-black text-stone-950" {...props} />
+          ),
+          em: ({ node, ...props }) => (
+            <em className="text-stone-700" {...props} />
+          ),
           blockquote: ({ node, ...props }) => (
-            <blockquote className="border-l-4 border-primary/30 pl-4 my-6 italic text-muted-foreground" {...props} />
+            <blockquote className="my-8 max-w-3xl overflow-hidden rounded-[1.5rem] border border-amber-200 bg-gradient-to-br from-amber-50 via-orange-50 to-white p-0 shadow-[0_18px_50px_rgba(146,64,14,0.12)]">
+              <div className="border-b border-amber-200/70 bg-amber-100/70 px-5 py-3 text-[10px] font-black uppercase tracking-[0.24em] text-amber-900">
+                Tutor Note
+              </div>
+              <div className="px-6 py-5 font-serif text-lg leading-8 text-stone-800" {...props} />
+            </blockquote>
+          ),
+          code: ({ node, inline, ...props }) => (
+            <code
+              className={
+                inline
+                  ? 'rounded-md bg-stone-900 px-1.5 py-0.5 font-mono text-sm text-amber-100'
+                  : 'font-mono text-sm text-amber-100'
+              }
+              {...props}
+            />
+          ),
+          pre: ({ node, ...props }) => (
+            <pre className="my-8 max-w-3xl overflow-x-auto rounded-2xl border border-stone-800 bg-stone-950 p-5 shadow-xl" {...props} />
+          ),
+          table: ({ node, ...props }) => (
+            <div className="my-8 max-w-4xl overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm">
+              <table className="w-full border-collapse text-left text-sm" {...props} />
+            </div>
+          ),
+          th: ({ node, ...props }) => (
+            <th className="border-b border-stone-200 bg-stone-100 px-4 py-3 font-bold text-stone-900" {...props} />
+          ),
+          td: ({ node, ...props }) => (
+            <td className="border-b border-stone-100 px-4 py-3 leading-6 text-stone-700" {...props} />
+          ),
+          hr: ({ node, ...props }) => (
+            <hr className="my-12 max-w-3xl border-0 border-t border-stone-200" {...props} />
+          ),
+          a: ({ node, ...props }) => (
+            <a className="font-semibold text-indigo-700 underline decoration-indigo-200 decoration-2 underline-offset-4 hover:text-indigo-900" {...props} />
           ),
         }}
       >
