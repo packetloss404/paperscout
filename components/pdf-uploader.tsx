@@ -1,21 +1,58 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { Upload, Loader2, CheckCircle2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { CheckCircle2, Loader2, Upload } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
 import { v4 as uuidv4 } from 'uuid';
 import { type PDF } from '@/lib/db';
 
-// Set up the worker - use local copy instead of CDN
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
 
-type Step = 'idle' | 'extracting' | 'uploading' | 'processing' | 'done' | 'error';
+type Step = 'idle' | 'extracting' | 'uploading' | 'queued' | 'approval' | 'processing' | 'done' | 'error';
+
+type WorkflowEvent = {
+  type: string;
+  message: string;
+  at: string;
+  progress?: number;
+  chapterIndex?: number;
+  chapterTotal?: number;
+  chapterTitle?: string;
+  chapters?: ChapterApproval[];
+  error?: string;
+};
+
+type ChapterStatus = 'pending' | 'processing' | 'complete' | 'error';
+
+type ChapterCard = {
+  index: number;
+  title: string;
+  status: ChapterStatus;
+  error?: string;
+};
+
+type ChapterApproval = {
+  index: number;
+  title: string;
+  characters?: number;
+};
+
+type ActiveRun = {
+  runId: string;
+  pdfId: string;
+  fileName: string;
+};
+
+const ACTIVE_RUN_KEY = 'paperscout.activeRun.v1';
+const POLL_DELAY_MS = 1500;
 
 const STEP_LABELS: Record<Step, string> = {
   idle: 'Drag & drop your PDF here',
   extracting: 'Extracting text from PDF...',
   uploading: 'Uploading extracted text...',
-  processing: 'AI is turning this into a textbook...',
+  queued: 'Workflow run queued...',
+  approval: 'Approve the chapter map to continue',
+  processing: 'Durable AI workflow is processing...',
   done: 'Ready in your library',
   error: 'Something went wrong',
 };
@@ -24,13 +61,194 @@ interface PDFUploaderProps {
   onUploaded?: (book: PDF) => void;
 }
 
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function readActiveRun(): ActiveRun | null {
+  try {
+    const raw = window.localStorage.getItem(ACTIVE_RUN_KEY);
+    return raw ? (JSON.parse(raw) as ActiveRun) : null;
+  } catch {
+    return null;
+  }
+}
+
+function statusClass(status: ChapterStatus) {
+  switch (status) {
+    case 'complete':
+      return 'border-emerald-200 bg-emerald-50 text-emerald-800';
+    case 'processing':
+      return 'border-amber-200 bg-amber-50 text-amber-800';
+    case 'error':
+      return 'border-red-200 bg-red-50 text-red-700';
+    default:
+      return 'border-stone-200 bg-white text-stone-600';
+  }
+}
+
 export function PDFUploader({ onUploaded }: PDFUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [step, setStep] = useState<Step>('idle');
   const [errorMsg, setErrorMsg] = useState('');
+  const [runId, setRunId] = useState<string | null>(null);
+  const [savedRun, setSavedRun] = useState<ActiveRun | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
+  const [demoRetry, setDemoRetry] = useState(false);
+  const [events, setEvents] = useState<WorkflowEvent[]>([]);
+  const [chapterCards, setChapterCards] = useState<Record<number, ChapterCard>>({});
+  const [approvalChapters, setApprovalChapters] = useState<ChapterApproval[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cancelledRef = useRef(false);
+  const streamedRunRef = useRef<string | null>(null);
 
-  const isProcessing = step === 'extracting' || step === 'uploading' || step === 'processing';
+  const isProcessing = step === 'extracting' || step === 'uploading' || step === 'queued' || step === 'approval' || step === 'processing';
+  const cards = Object.values(chapterCards).sort((a, b) => a.index - b.index);
+  const completedCount = cards.filter((card) => card.status === 'complete').length;
+  const latestEvent = events[events.length - 1];
+  const label = latestEvent?.message || STEP_LABELS[step];
+
+  useEffect(() => {
+    setSavedRun(readActiveRun());
+  }, []);
+
+  const clearActiveRun = () => {
+    window.localStorage.removeItem(ACTIVE_RUN_KEY);
+    setSavedRun(null);
+  };
+
+  const saveActiveRun = (run: ActiveRun) => {
+    window.localStorage.setItem(ACTIVE_RUN_KEY, JSON.stringify(run));
+    setSavedRun(run);
+  };
+
+  const resetMissionControl = () => {
+    setEvents([]);
+    setChapterCards({});
+    setApprovalChapters([]);
+    streamedRunRef.current = null;
+  };
+
+  const applyWorkflowEvent = (event: WorkflowEvent) => {
+    setEvents((current) => [...current.slice(-10), event]);
+
+    if (event.type === 'chapters_discovered' || event.type === 'awaiting_approval') {
+      const chapters = event.chapters || [];
+      setApprovalChapters(chapters);
+      setChapterCards((current) => ({
+        ...Object.fromEntries(
+          chapters.map((chapter) => [
+            chapter.index,
+            current[chapter.index] || {
+              index: chapter.index,
+              title: chapter.title,
+              status: 'pending' as ChapterStatus,
+            },
+          ])
+        ),
+      }));
+    }
+
+    if (event.type === 'chapter_started' && event.chapterIndex) {
+      setChapterCards((current) => ({
+        ...current,
+        [event.chapterIndex!]: {
+          index: event.chapterIndex!,
+          title: event.chapterTitle || current[event.chapterIndex!]?.title || `Chapter ${event.chapterIndex}`,
+          status: 'processing',
+        },
+      }));
+    }
+
+    if ((event.type === 'chapter_completed' || event.type === 'chapter_failed') && event.chapterIndex) {
+      setChapterCards((current) => ({
+        ...current,
+        [event.chapterIndex!]: {
+          index: event.chapterIndex!,
+          title: event.chapterTitle || current[event.chapterIndex!]?.title || `Chapter ${event.chapterIndex}`,
+          status: event.type === 'chapter_completed' ? 'complete' : 'error',
+          error: event.error,
+        },
+      }));
+    }
+  };
+
+  const streamWorkflowProgress = async (workflowRunId: string) => {
+    if (streamedRunRef.current === workflowRunId) return;
+    streamedRunRef.current = workflowRunId;
+
+    try {
+      const response = await fetch(`/api/upload-pdf/stream?runId=${encodeURIComponent(workflowRunId)}`, {
+        cache: 'no-store',
+      });
+
+      if (!response.ok || !response.body) return;
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (!cancelledRef.current) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          applyWorkflowEvent(JSON.parse(line) as WorkflowEvent);
+        }
+      }
+    } catch {
+      // The status poller is authoritative; streamed updates are best effort UI polish.
+    }
+  };
+
+  const pollWorkflowRun = async (workflowRunId: string): Promise<PDF> => {
+    for (let attempt = 0; attempt < 360; attempt++) {
+      if (cancelledRef.current) throw new Error('Workflow run cancelled.');
+
+      const response = await fetch(`/api/upload-pdf/status?runId=${encodeURIComponent(workflowRunId)}`, {
+        cache: 'no-store',
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.error || `Workflow status check failed: ${response.status}`);
+      }
+
+      if (Array.isArray(data.chapterMap)) {
+        setApprovalChapters(data.chapterMap);
+      }
+
+      if (data.book) return data.book as PDF;
+
+      if (data.status === 'awaiting_chapter_map') {
+        setStep('approval');
+      } else if (data.status === 'failed' || data.status === 'cancelled' || data.status === 'error') {
+        throw new Error(data.error || `Workflow ${data.status}`);
+      } else {
+        setStep(data.status === 'pending' ? 'queued' : 'processing');
+      }
+
+      await wait(POLL_DELAY_MS);
+    }
+
+    throw new Error('Workflow did not finish before the polling timeout.');
+  };
+
+  const finishRun = async (workflowRunId: string) => {
+    setRunId(workflowRunId);
+    void streamWorkflowProgress(workflowRunId);
+    const book = await pollWorkflowRun(workflowRunId);
+    clearActiveRun();
+    setRunId(null);
+    setStep('done');
+    onUploaded?.(book);
+  };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -53,14 +271,14 @@ export function PDFUploader({ onUploaded }: PDFUploaderProps) {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     let fullText = '';
-    
+
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
       const textContent = await page.getTextContent();
       const pageText = textContent.items.map((item: any) => item.str).join(' ');
       fullText += pageText + '\n\n';
     }
-    
+
     return {
       text: fullText,
       pageCount: pdf.numPages,
@@ -75,16 +293,17 @@ export function PDFUploader({ onUploaded }: PDFUploaderProps) {
     }
 
     const pdfId = uuidv4();
+    cancelledRef.current = false;
+    resetMissionControl();
+    setRunId(null);
     setErrorMsg('');
 
     try {
-      // Step 1: Extract text from PDF client-side
       setStep('extracting');
       const { text, pageCount } = await extractPDFText(file);
 
-      // Step 2: Upload extracted text and wait for AI processing to complete
       setStep('uploading');
-      const uploadPromise = fetch('/api/upload-pdf', {
+      const response = await fetch('/api/upload-pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -92,11 +311,9 @@ export function PDFUploader({ onUploaded }: PDFUploaderProps) {
           fileName: file.name,
           pageCount,
           extractedText: text,
+          demoRetry,
         }),
       });
-
-      setStep('processing');
-      const response = await uploadPromise;
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -104,15 +321,112 @@ export function PDFUploader({ onUploaded }: PDFUploaderProps) {
       }
 
       const data = await response.json();
-      if (!data.book) throw new Error('Processing finished without a book payload');
+      if (!data.runId && !data.book) throw new Error('Workflow did not return a run id');
 
-      setStep('done');
-      onUploaded?.(data.book);
+      setStep('queued');
+
+      if (data.runId) {
+        saveActiveRun({ runId: data.runId, pdfId, fileName: file.name });
+        await finishRun(data.runId);
+      } else {
+        setStep('done');
+        onUploaded?.(data.book);
+      }
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Unknown error';
       setErrorMsg(msg);
       setStep('error');
     }
+  };
+
+  const handleApproveChapterMap = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!runId || approvalChapters.length === 0) return;
+
+    setIsApproving(true);
+
+    try {
+      const response = await fetch('/api/upload-pdf/chapter-map', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ runId, chapters: approvalChapters }),
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.error || `Approval failed: ${response.status}`);
+      }
+
+      setApprovalChapters([]);
+      setStep('processing');
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Failed to approve chapter map';
+      setErrorMsg(msg);
+      setStep('error');
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
+  const handleCancel = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!runId) return;
+
+    cancelledRef.current = true;
+    setIsCancelling(true);
+
+    try {
+      const response = await fetch('/api/upload-pdf/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ runId }),
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.error || `Cancel failed: ${response.status}`);
+      }
+
+      clearActiveRun();
+      setRunId(null);
+      setErrorMsg('Workflow run cancelled.');
+      setStep('error');
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Failed to cancel workflow run';
+      setErrorMsg(msg);
+      setStep('error');
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
+  const handleResume = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const activeRun = savedRun || readActiveRun();
+    if (!activeRun) return;
+
+    cancelledRef.current = false;
+    resetMissionControl();
+    setErrorMsg('');
+    setStep('queued');
+
+    try {
+      await finishRun(activeRun.runId);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Failed to resume workflow run';
+      setErrorMsg(msg);
+      setStep('error');
+    }
+  };
+
+  const handleTryAgain = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    cancelledRef.current = false;
+    clearActiveRun();
+    resetMissionControl();
+    setRunId(null);
+    setStep('idle');
+    setErrorMsg('');
   };
 
   return (
@@ -121,12 +435,9 @@ export function PDFUploader({ onUploaded }: PDFUploaderProps) {
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       onClick={() => !isProcessing && fileInputRef.current?.click()}
-      className={`relative border-2 border-dashed rounded-xl p-12 text-center transition-all duration-200 select-none
+      className={`relative select-none rounded-xl border-2 border-dashed p-8 text-center transition-all duration-200 md:p-12
         ${isProcessing ? 'cursor-default' : 'cursor-pointer'}
-        ${isDragging 
-          ? 'border-emerald-400 bg-emerald-50 scale-[1.01]' 
-          : 'border-gray-300 bg-gray-50 hover:border-emerald-400 hover:bg-emerald-50/50'
-        }
+        ${isDragging ? 'scale-[1.01] border-emerald-400 bg-emerald-50' : 'border-gray-300 bg-gray-50 hover:border-emerald-400 hover:bg-emerald-50/50'}
       `}
     >
       <input
@@ -138,69 +449,149 @@ export function PDFUploader({ onUploaded }: PDFUploaderProps) {
         disabled={isProcessing}
       />
 
-      <div className="inline-flex flex-col items-center gap-5">
+      <div className="mx-auto flex max-w-3xl flex-col items-center gap-5">
         <div className="relative">
           {step === 'done' ? (
-            <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center">
-              <CheckCircle2 className="w-8 h-8 text-green-600" />
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-100">
+              <CheckCircle2 className="h-8 w-8 text-green-600" />
             </div>
           ) : step === 'error' ? (
-            <div className="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center">
-              <Upload className="w-8 h-8 text-red-600" />
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-100">
+              <Upload className="h-8 w-8 text-red-600" />
             </div>
           ) : isProcessing ? (
-            <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center">
-              <Loader2 className="w-8 h-8 text-emerald-700 animate-spin" />
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100">
+              <Loader2 className="h-8 w-8 animate-spin text-emerald-700" />
             </div>
           ) : (
-            <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center">
-              <Upload className="w-8 h-8 text-emerald-700" />
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100">
+              <Upload className="h-8 w-8 text-emerald-700" />
             </div>
           )}
         </div>
 
         <div className="space-y-1">
-          <p className={`text-base font-semibold ${step === 'error' ? 'text-red-600' : 'text-gray-900'}`}>
-            {STEP_LABELS[step]}
-          </p>
-          {step === 'idle' && (
-            <p className="text-sm text-gray-500">PDF files only</p>
-          )}
-          {step === 'error' && errorMsg && (
-            <p className="text-sm text-gray-500 max-w-xs">{errorMsg}</p>
-          )}
+          <p className={`text-base font-semibold ${step === 'error' ? 'text-red-600' : 'text-gray-900'}`}>{label}</p>
+          {step === 'idle' && <p className="text-sm text-gray-500">PDF files only</p>}
+          {step === 'error' && errorMsg && <p className="mx-auto max-w-md text-sm text-gray-500">{errorMsg}</p>}
         </div>
+
+        {!isProcessing && step !== 'done' && (
+          <label onClick={(e) => e.stopPropagation()} className="flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800">
+            <input type="checkbox" checked={demoRetry} onChange={(event) => setDemoRetry(event.target.checked)} />
+            Demo retryable step failure
+          </label>
+        )}
 
         {isProcessing && (
           <div className="flex items-center gap-2">
-            {(['extracting', 'uploading', 'processing', 'done'] as Step[]).map((s, i) => {
-              const steps: Step[] = ['extracting', 'uploading', 'processing', 'done'];
+            {(['extracting', 'uploading', 'queued', 'approval', 'processing', 'done'] as Step[]).map((s, i) => {
+              const steps: Step[] = ['extracting', 'uploading', 'queued', 'approval', 'processing', 'done'];
               const currentIdx = steps.indexOf(step);
               const thisIdx = steps.indexOf(s);
               const done = thisIdx < currentIdx;
               const active = thisIdx === currentIdx;
               return (
                 <div key={s} className="flex items-center gap-2">
-                  <div
-                    className={`w-2 h-2 rounded-full transition-all ${
-                      done ? 'bg-emerald-700' : active ? 'bg-emerald-700 animate-pulse' : 'bg-gray-300'
-                    }`}
-                  />
-                  {i < steps.length - 1 && <div className="w-6 h-px bg-gray-300" />}
+                  <div className={`h-2 w-2 rounded-full transition-all ${done ? 'bg-emerald-700' : active ? 'animate-pulse bg-emerald-700' : 'bg-gray-300'}`} />
+                  {i < steps.length - 1 && <div className="h-px w-6 bg-gray-300" />}
                 </div>
               );
             })}
           </div>
         )}
 
-        {step === 'error' && (
-          <button
-            onClick={(e) => { e.stopPropagation(); setStep('idle'); setErrorMsg(''); }}
-            className="text-sm font-medium text-emerald-700 hover:text-emerald-800 transition-colors"
-          >
-            Try again
-          </button>
+        {(events.length > 0 || cards.length > 0) && (
+          <div className="w-full rounded-2xl border border-stone-200 bg-white p-4 text-left shadow-sm">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-700">Workflow Mission Control</p>
+                <h3 className="mt-1 text-lg font-black text-stone-950">{completedCount}/{cards.length || 0} chapter steps complete</h3>
+              </div>
+              {runId && <p className="rounded-full bg-stone-100 px-3 py-1 text-[10px] font-bold text-stone-600">{runId.slice(0, 12)}...</p>}
+            </div>
+
+            {approvalChapters.length > 0 && step === 'approval' && (
+              <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-800">Human checkpoint</p>
+                <p className="mt-1 text-sm text-amber-900">Review or rename the chapter map, then resume the durable workflow.</p>
+                <div className="mt-3 space-y-2">
+                  {approvalChapters.map((chapter, index) => (
+                    <input
+                      key={chapter.index}
+                      value={chapter.title}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(event) => {
+                        const next = [...approvalChapters];
+                        next[index] = { ...chapter, title: event.target.value };
+                        setApprovalChapters(next);
+                      }}
+                      className="w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm font-semibold outline-none focus:border-amber-500"
+                    />
+                  ))}
+                </div>
+                <button
+                  onClick={handleApproveChapterMap}
+                  disabled={isApproving}
+                  className="mt-3 rounded-full bg-amber-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-amber-700 disabled:opacity-60"
+                >
+                  {isApproving ? 'Approving...' : 'Approve map and resume'}
+                </button>
+              </div>
+            )}
+
+            {cards.length > 0 && (
+              <div className="mt-4 grid gap-2 md:grid-cols-2">
+                {cards.map((card) => (
+                  <div key={card.index} className={`rounded-xl border p-3 ${statusClass(card.status)}`}>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="min-w-0 truncate text-sm font-black">{card.index}. {card.title}</p>
+                      <span className="shrink-0 text-[10px] font-black uppercase tracking-wide">{card.status}</span>
+                    </div>
+                    {card.error && <p className="mt-1 text-xs">{card.error}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {events.length > 0 && (
+              <div className="mt-4 space-y-1 border-t border-stone-100 pt-3">
+                {events.slice(-5).map((event, index) => (
+                  <p key={`${event.at}-${index}`} className="text-xs text-stone-500">
+                    <span className="font-bold text-stone-800">{event.type.replaceAll('_', ' ')}</span> - {event.message}
+                  </p>
+                ))}
+              </div>
+            )}
+          </div>
         )}
+
+        <div className="flex flex-wrap justify-center gap-3">
+          {runId && isProcessing && (
+            <button
+              onClick={handleCancel}
+              disabled={isCancelling}
+              className="rounded-full border border-red-200 bg-white px-4 py-2 text-sm font-bold text-red-700 transition-colors hover:bg-red-50 disabled:opacity-60"
+            >
+              {isCancelling ? 'Cancelling...' : 'Cancel run'}
+            </button>
+          )}
+
+          {savedRun && !isProcessing && step !== 'done' && (
+            <button
+              onClick={handleResume}
+              className="rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-bold text-emerald-700 transition-colors hover:bg-emerald-50"
+            >
+              Resume previous run
+            </button>
+          )}
+
+          {step === 'error' && (
+            <button onClick={handleTryAgain} className="rounded-full px-4 py-2 text-sm font-bold text-emerald-700 transition-colors hover:text-emerald-800">
+              Try again
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
 import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
+import { createHook, getStepMetadata, getWorkflowMetadata, getWritable, RetryableError, sleep } from "workflow";
 import {
   type CitationSignal,
   type ClaimCard,
@@ -13,7 +14,23 @@ import {
 interface ChapterResult {
   title: string;
   markdown: string;
-  originalText: string;
+}
+
+interface ChapterChunk {
+  title: string;
+  text: string;
+}
+
+export type ChapterMapSummaryItem = {
+  [key: string]: string | number;
+  index: number;
+  title: string;
+  characters: number;
+};
+
+interface ChapterMapApprovalPayload {
+  chapters: Array<{ index: number; title: string }>;
+  approvedAt?: string;
 }
 
 interface ProcessPDFWorkflowInput {
@@ -21,25 +38,303 @@ interface ProcessPDFWorkflowInput {
   title: string;
   rawText: string;
   pageCount: number;
+  demoRetry?: boolean;
 }
 
-type ProcessPDFResult = { status: string; book?: PDF; error?: string };
+export type ProcessPDFResult = { status: string; book?: PDF; error?: string };
+
+export type PDFWorkflowEvent = {
+  type:
+    | "workflow_started"
+    | "retry_demo"
+    | "analyzing"
+    | "chapters_discovered"
+    | "awaiting_approval"
+    | "approval_received"
+    | "intelligence_started"
+    | "intelligence_completed"
+    | "chapter_started"
+    | "chapter_completed"
+    | "chapter_failed"
+    | "assembling_book"
+    | "workflow_completed"
+    | "workflow_error";
+  message: string;
+  at: string;
+  pdfId?: string;
+  title?: string;
+  progress?: number;
+  runId?: string;
+  token?: string;
+  chapterIndex?: number;
+  chapterTotal?: number;
+  chapterTitle?: string;
+  chapters?: ChapterMapSummaryItem[];
+  error?: string;
+};
 
 export async function processPDFWorkflow(
   input: ProcessPDFWorkflowInput
 ): Promise<ProcessPDFResult> {
   "use workflow";
 
-  const result = await processPDFStep(input);
-  return result;
+  const workflowMetadata = getWorkflowMetadata();
+  const approvalToken = `chapter-map:${workflowMetadata.workflowRunId}`;
+
+  await emitProgressStep({
+    type: "workflow_started",
+    message: "Workflow run started",
+    at: new Date().toISOString(),
+    pdfId: input.pdfId,
+    title: input.title,
+    runId: workflowMetadata.workflowRunId,
+    progress: 3,
+  });
+
+  await demoRetryOnceStep({ enabled: input.demoRetry === true, pdfId: input.pdfId });
+
+  await emitProgressStep({
+    type: "analyzing",
+    message: "Mapping report structure",
+    at: new Date().toISOString(),
+    pdfId: input.pdfId,
+    progress: 10,
+  });
+
+  const chapterMap = await analyzeAndChunkStep(input.rawText);
+  const chapterSummary = summarizeChapterMap(chapterMap);
+
+  await emitProgressStep({
+    type: "chapters_discovered",
+    message: `Mapped ${chapterMap.length} sections`,
+    at: new Date().toISOString(),
+    pdfId: input.pdfId,
+    chapters: chapterSummary,
+    chapterTotal: chapterMap.length,
+    progress: 20,
+  });
+
+  const approvalHook = createHook<ChapterMapApprovalPayload>({
+    token: approvalToken,
+    metadata: {
+      kind: "chapter-map-approval",
+      pdfId: input.pdfId,
+      title: input.title,
+      chapters: chapterSummary,
+    },
+  });
+
+  await emitProgressStep({
+    type: "awaiting_approval",
+    message: "Waiting for chapter map approval",
+    at: new Date().toISOString(),
+    pdfId: input.pdfId,
+    token: approvalToken,
+    chapters: chapterSummary,
+    progress: 25,
+  });
+
+  const approval = await approvalHook;
+  approvalHook.dispose();
+
+  await emitProgressStep({
+    type: "approval_received",
+    message: "Chapter map approved, resuming workflow",
+    at: approval.approvedAt || new Date().toISOString(),
+    pdfId: input.pdfId,
+    progress: 30,
+  });
+
+  const approvedChapterMap = applyChapterTitleApprovals(chapterMap, approval.chapters);
+  await sleep("1s");
+
+  await emitProgressStep({
+    type: "intelligence_started",
+    message: "Generating research intelligence",
+    at: new Date().toISOString(),
+    pdfId: input.pdfId,
+    progress: 35,
+  });
+
+  const intelligencePromise = generateResearchIntelligenceStep({
+    title: input.title,
+    rawText: input.rawText,
+  });
+  const processedChapters = await Promise.all(
+    approvedChapterMap.map(async (chunk, i) =>
+      convertChapterWithProgressStep({
+        pdfId: input.pdfId,
+        index: i + 1,
+        total: approvedChapterMap.length,
+        title: chunk.title,
+        text: chunk.text,
+      })
+    )
+  );
+  const intelligence = await intelligencePromise;
+
+  await emitProgressStep({
+    type: "intelligence_completed",
+    message: "Research intelligence generated",
+    at: new Date().toISOString(),
+    pdfId: input.pdfId,
+    progress: 82,
+  });
+
+  await emitProgressStep({
+    type: "assembling_book",
+    message: "Assembling final PaperScout report",
+    at: new Date().toISOString(),
+    pdfId: input.pdfId,
+    progress: 92,
+  });
+
+  const book = await assembleBookStep({
+    pdfId: input.pdfId,
+    title: input.title,
+    rawText: input.rawText,
+    pageCount: input.pageCount,
+    processedChapters,
+    intelligence,
+  });
+
+  await emitProgressStep({
+    type: "workflow_completed",
+    message: "Workflow completed",
+    at: new Date().toISOString(),
+    pdfId: input.pdfId,
+    progress: 100,
+  });
+  await closeProgressStep();
+
+  return { status: "complete", book };
 }
 
-async function processPDFStep(
-  input: ProcessPDFWorkflowInput
-): Promise<ProcessPDFResult> {
+async function emitProgressStep(event: PDFWorkflowEvent): Promise<void> {
   "use step";
 
-  return processPDF(input.pdfId, input.title, input.rawText, input.pageCount);
+  const writer = getWritable<PDFWorkflowEvent>({ namespace: "progress" }).getWriter();
+
+  try {
+    await writer.write(event);
+  } finally {
+    writer.releaseLock();
+  }
+}
+
+async function closeProgressStep(): Promise<void> {
+  "use step";
+
+  await getWritable<PDFWorkflowEvent>({ namespace: "progress" }).close();
+}
+
+async function demoRetryOnceStep(input: { enabled: boolean; pdfId: string }): Promise<void> {
+  "use step";
+
+  if (!input.enabled) return;
+
+  const metadata = getStepMetadata();
+  const writer = getWritable<PDFWorkflowEvent>({ namespace: "progress" }).getWriter();
+
+  try {
+    await writer.write({
+      type: "retry_demo",
+      message: metadata.attempt === 1 ? "Intentional retry demo: first attempt failed" : "Retry demo recovered on the next attempt",
+      at: new Date().toISOString(),
+      pdfId: input.pdfId,
+      progress: 6,
+    });
+  } finally {
+    writer.releaseLock();
+  }
+
+  if (metadata.attempt === 1) {
+    throw new RetryableError("Intentional one-time retry demo", { retryAfter: "5s" });
+  }
+}
+
+demoRetryOnceStep.maxRetries = 1;
+
+async function analyzeAndChunkStep(rawText: string): Promise<ChapterChunk[]> {
+  "use step";
+
+  return analyzeAndChunk(rawText);
+}
+
+async function generateResearchIntelligenceStep(input: {
+  title: string;
+  rawText: string;
+}): Promise<ResearchIntelligence> {
+  "use step";
+
+  return generateResearchIntelligence(input.title, input.rawText);
+}
+
+async function convertChapterWithProgressStep(input: {
+  pdfId: string;
+  index: number;
+  total: number;
+  title: string;
+  text: string;
+}): Promise<ChapterResult> {
+  "use step";
+
+  const writer = getWritable<PDFWorkflowEvent>({ namespace: "progress" }).getWriter();
+
+  try {
+    await writer.write({
+      type: "chapter_started",
+      message: `Converting chapter ${input.index} of ${input.total}`,
+      at: new Date().toISOString(),
+      pdfId: input.pdfId,
+      chapterIndex: input.index,
+      chapterTotal: input.total,
+      chapterTitle: input.title,
+      progress: 35 + Math.round(((input.index - 1) / input.total) * 40),
+    });
+
+    const result = await convertChapter(input.pdfId, input.index, input.total, input.title, input.text);
+
+    await writer.write({
+      type: "chapter_completed",
+      message: `Finished chapter ${input.index} of ${input.total}`,
+      at: new Date().toISOString(),
+      pdfId: input.pdfId,
+      chapterIndex: input.index,
+      chapterTotal: input.total,
+      chapterTitle: input.title,
+      progress: 35 + Math.round((input.index / input.total) * 40),
+    });
+
+    return result;
+  } catch (error) {
+    await writer.write({
+      type: "chapter_failed",
+      message: `Chapter ${input.index} failed`,
+      at: new Date().toISOString(),
+      pdfId: input.pdfId,
+      chapterIndex: input.index,
+      chapterTotal: input.total,
+      chapterTitle: input.title,
+      error: error instanceof Error ? error.message : "Chapter conversion failed",
+    });
+    throw error;
+  } finally {
+    writer.releaseLock();
+  }
+}
+
+async function assembleBookStep(input: {
+  pdfId: string;
+  title: string;
+  rawText: string;
+  pageCount: number;
+  processedChapters: ChapterResult[];
+  intelligence: ResearchIntelligence;
+}): Promise<PDF> {
+  "use step";
+
+  return assembleBook(input);
 }
 
 export async function processPDF(
@@ -65,21 +360,7 @@ export async function processPDF(
     );
     const intelligence = await intelligencePromise;
 
-    const book: PDF = {
-      id: pdfId,
-      title,
-      fileName: `${title}.pdf`,
-      pageCount,
-      dateAdded: new Date().toISOString(),
-      content: rawText,
-      chapters: processedChapters.map((ch, i) => ({
-        id: `ch-${i + 1}`,
-        title: ch.title,
-        content: ch.markdown,
-      })),
-      intelligence,
-      status: "complete",
-    };
+    const book = assembleBook({ pdfId, title, rawText, pageCount, processedChapters, intelligence });
 
     return { status: "complete", book };
   } catch (error) {
@@ -89,7 +370,56 @@ export async function processPDF(
   }
 }
 
-async function analyzeAndChunk(text: string): Promise<Array<{ title: string; text: string }>> {
+function assembleBook(input: {
+  pdfId: string;
+  title: string;
+  rawText: string;
+  pageCount: number;
+  processedChapters: ChapterResult[];
+  intelligence: ResearchIntelligence;
+}): PDF {
+  return {
+    id: input.pdfId,
+    title: input.title,
+    fileName: `${input.title}.pdf`,
+    pageCount: input.pageCount,
+    dateAdded: new Date().toISOString(),
+    content: input.rawText,
+    chapters: input.processedChapters.map((ch, i) => ({
+      id: `ch-${i + 1}`,
+      title: ch.title,
+      content: ch.markdown,
+    })),
+    intelligence: input.intelligence,
+    status: "complete",
+  };
+}
+
+function summarizeChapterMap(chapterMap: ChapterChunk[]): ChapterMapSummaryItem[] {
+  return chapterMap.map((chapter, index) => ({
+    index: index + 1,
+    title: chapter.title,
+    characters: chapter.text.length,
+  }));
+}
+
+function applyChapterTitleApprovals(
+  chapterMap: ChapterChunk[],
+  approvedChapters: Array<{ index: number; title: string }>
+): ChapterChunk[] {
+  const titles = new Map(
+    approvedChapters
+      .filter((chapter) => Number.isInteger(chapter.index) && typeof chapter.title === "string" && chapter.title.trim())
+      .map((chapter) => [chapter.index, chapter.title.trim()])
+  );
+
+  return chapterMap.map((chapter, index) => ({
+    ...chapter,
+    title: titles.get(index + 1) || chapter.title,
+  }));
+}
+
+async function analyzeAndChunk(text: string): Promise<ChapterChunk[]> {
   const { text: chunked } = await generateText({
     model: openai("gpt-4o-mini"),
     system: `You are PaperScout's research cartographer. Your job is to turn raw PDF text into a useful map of a report, research paper, policy document, or technical brief.
@@ -114,7 +444,7 @@ Rules:
 
   try {
     const cleaned = chunked.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    return JSON.parse(cleaned) as Array<{ title: string; text: string }>;
+    return JSON.parse(cleaned) as ChapterChunk[];
   } catch {
     const fallback = splitNaive(text);
     return fallback;
@@ -127,7 +457,7 @@ async function convertChapter(
   total: number,
   title: string,
   text: string
-): Promise<{ title: string; markdown: string; originalText: string }> {
+): Promise<ChapterResult> {
   const { text: markdown } = await generateText({
     model: openai("gpt-4o-mini"),
     system: `You are PaperScout's AI research analyst. Convert raw report text into a sharp Markdown analysis chapter for a professional reader who wants signal, context, and useful next steps.
@@ -184,7 +514,6 @@ Style:
   return {
     title,
     markdown: markdown.trim(),
-    originalText: text,
   };
 }
 

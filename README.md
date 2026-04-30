@@ -13,7 +13,12 @@ The UI was scaffolded and iterated with **v0**, but this version does not includ
 - Upload a PDF in the browser.
 - Extract text client-side with `pdfjs-dist`.
 - Start a Workflow SDK run from `/api/upload-pdf`.
-- Run AI processing inside a `use step` function.
+- Poll Workflow run status from `/api/upload-pdf/status`.
+- Run AI processing across multiple `use step` functions.
+- Stream live Workflow progress into a Mission Control panel.
+- Pause for human chapter-map approval before expensive fan-out processing.
+- Demonstrate retryable step recovery with an opt-in demo failure.
+- Cancel or resume active Workflow runs from the upload UI.
 - Generate a chapter map, polished Markdown chapters, research intelligence, citation leads, skeptic checks, and a portable Scout Board.
 - Store completed reports in browser `localStorage` for a simple hackathon-friendly library.
 
@@ -22,17 +27,48 @@ The UI was scaffolded and iterated with **v0**, but this version does not includ
 The implemented processing path is:
 
 - `components/pdf-uploader.tsx` extracts PDF text and POSTs it to `/api/upload-pdf`.
-- `app/api/upload-pdf/route.ts` starts `processPDFWorkflow` with `workflow/api`.
+- `app/api/upload-pdf/route.ts` starts `processPDFWorkflow` with `workflow/api` and returns a `runId`.
+- `components/pdf-uploader.tsx` polls `/api/upload-pdf/status?runId=...` until the Workflow run returns a completed book.
+- `components/pdf-uploader.tsx` also reads `/api/upload-pdf/stream?runId=...` for live mission-control events.
 - `lib/pdf-workflow.ts` defines `processPDFWorkflow` with `use workflow`.
-- `processPDFWorkflow` calls `processPDFStep`, which runs under `use step` and performs the AI SDK/OpenAI work.
+- `processPDFWorkflow` uses a short durable `sleep()` checkpoint, a deterministic chapter-map approval hook, and fan-out chapter conversion with `Promise.all`.
+- AI work is split across `use step` functions for progress events, retry demo, chapter mapping, research intelligence, per-chapter conversion, and final book assembly.
 
-The route still returns the same response shape expected by the UI:
+Additional Track 1 routes:
+
+- `GET /api/upload-pdf/stream?runId=...` streams NDJSON progress events from `run.getReadable()`.
+- `POST /api/upload-pdf/chapter-map` resumes the approval hook with edited chapter titles.
+- `POST /api/upload-pdf/cancel` cancels a running Workflow run.
+
+The upload route starts quickly with:
 
 ```ts
 {
   pdfId: string,
-  status: string,
+  runId: string,
+  status: 'running'
+}
+```
+
+The status route returns the completed book when the run finishes:
+
+```ts
+{
+  runId: string,
+  status: 'complete',
+  workflowStatus: 'completed',
   book: PDF
+}
+```
+
+While the workflow is paused, the status route returns:
+
+```ts
+{
+  runId: string,
+  status: 'awaiting_chapter_map',
+  workflowStatus: string,
+  chapterMap: Array<{ index: number, title: string, characters: number }>
 }
 ```
 
@@ -41,6 +77,7 @@ The route still returns the same response shape expected by the UI:
 - Next.js 16 and React 19
 - v0 for UI scaffolding
 - Workflow SDK for durable processing orchestration
+- Workflow hooks, streams, cancellation, retryable steps, and run polling
 - AI SDK with OpenAI for report analysis
 - pdfjs-dist for client-side PDF text extraction
 - React Markdown, KaTeX, and Tailwind CSS for rendering
@@ -81,7 +118,7 @@ npm run build
 ## Notes
 
 - Workflow build output is generated under `app/.well-known/workflow/v1/` and ignored by git.
-- The current implementation keeps the existing synchronous upload UX by awaiting the workflow return value.
+- The current implementation uses Workflow run IDs and polling for the upload flow. The API still supports `{ wait: true }` for a synchronous compatibility path.
 - A production version should move large PDF text and completed books into durable storage instead of passing/storing full document text through request and browser-local flows.
 
 ## Built With v0
