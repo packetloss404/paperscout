@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { processPDF } from '@/lib/pdf-workflow';
+import { start } from 'workflow/api';
+import { processPDFWorkflow } from '@/lib/pdf-workflow';
 
 export const maxDuration = 300;
 
@@ -17,7 +18,15 @@ export async function POST(request: NextRequest) {
 
     const title = fileName.replace(/\.pdf$/i, '');
 
-    const result = await processPDF(pdfId, title, extractedText, pageCount || 1);
+    const run = await start(processPDFWorkflow, [
+      {
+        pdfId,
+        title,
+        rawText: extractedText,
+        pageCount: pageCount || 1,
+      },
+    ]);
+    const result = await run.returnValue;
 
     if (result.status === 'error') {
       return NextResponse.json(

@@ -16,12 +16,38 @@ interface ChapterResult {
   originalText: string;
 }
 
+interface ProcessPDFWorkflowInput {
+  pdfId: string;
+  title: string;
+  rawText: string;
+  pageCount: number;
+}
+
+type ProcessPDFResult = { status: string; book?: PDF; error?: string };
+
+export async function processPDFWorkflow(
+  input: ProcessPDFWorkflowInput
+): Promise<ProcessPDFResult> {
+  "use workflow";
+
+  const result = await processPDFStep(input);
+  return result;
+}
+
+async function processPDFStep(
+  input: ProcessPDFWorkflowInput
+): Promise<ProcessPDFResult> {
+  "use step";
+
+  return processPDF(input.pdfId, input.title, input.rawText, input.pageCount);
+}
+
 export async function processPDF(
   pdfId: string,
   title: string,
   rawText: string,
   pageCount: number
-): Promise<{ status: string; book?: PDF; error?: string }> {
+): Promise<ProcessPDFResult> {
   try {
     const chapterMap = await analyzeAndChunk(rawText);
     const intelligencePromise = generateResearchIntelligence(title, rawText);
