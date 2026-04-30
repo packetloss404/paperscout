@@ -19,7 +19,7 @@ export function JsonImporter({ onImported }: JsonImporterProps) {
       const text = await file.text();
       const payload = JSON.parse(text);
       const book = normalizeImportedBook(payload);
-      if (!book) throw new Error('Invalid PaperDrive JSON file');
+      if (!book) throw new Error('Invalid PaperScout JSON file');
       onImported?.(book);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Import failed';
@@ -46,7 +46,7 @@ export function JsonImporter({ onImported }: JsonImporterProps) {
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={isImporting}
-        className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+        className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {isImporting ? (
           <Loader2 className="h-4 w-4 animate-spin" />

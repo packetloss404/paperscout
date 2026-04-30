@@ -1,4 +1,6 @@
-# v0-paperdrive
+# PaperScout
+
+AI research intelligence for dense reports and papers: analyst briefs, citation leads, footnote trails, and follow-up research links.
 
 This is a [Next.js](https://nextjs.org) project bootstrapped with [v0](https://v0.app).
 

@@ -124,8 +124,8 @@ export function PDFUploader({ onUploaded }: PDFUploaderProps) {
       className={`relative border-2 border-dashed rounded-xl p-12 text-center transition-all duration-200 select-none
         ${isProcessing ? 'cursor-default' : 'cursor-pointer'}
         ${isDragging 
-          ? 'border-indigo-400 bg-indigo-50 scale-[1.01]' 
-          : 'border-gray-300 bg-gray-50 hover:border-indigo-400 hover:bg-indigo-50/50'
+          ? 'border-emerald-400 bg-emerald-50 scale-[1.01]' 
+          : 'border-gray-300 bg-gray-50 hover:border-emerald-400 hover:bg-emerald-50/50'
         }
       `}
     >
@@ -149,12 +149,12 @@ export function PDFUploader({ onUploaded }: PDFUploaderProps) {
               <Upload className="w-8 h-8 text-red-600" />
             </div>
           ) : isProcessing ? (
-            <div className="w-14 h-14 rounded-full bg-indigo-100 flex items-center justify-center">
-              <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+            <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center">
+              <Loader2 className="w-8 h-8 text-emerald-700 animate-spin" />
             </div>
           ) : (
-            <div className="w-14 h-14 rounded-full bg-indigo-100 flex items-center justify-center">
-              <Upload className="w-8 h-8 text-indigo-600" />
+            <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center">
+              <Upload className="w-8 h-8 text-emerald-700" />
             </div>
           )}
         </div>
@@ -183,7 +183,7 @@ export function PDFUploader({ onUploaded }: PDFUploaderProps) {
                 <div key={s} className="flex items-center gap-2">
                   <div
                     className={`w-2 h-2 rounded-full transition-all ${
-                      done ? 'bg-indigo-600' : active ? 'bg-indigo-600 animate-pulse' : 'bg-gray-300'
+                      done ? 'bg-emerald-700' : active ? 'bg-emerald-700 animate-pulse' : 'bg-gray-300'
                     }`}
                   />
                   {i < steps.length - 1 && <div className="w-6 h-px bg-gray-300" />}
@@ -196,7 +196,7 @@ export function PDFUploader({ onUploaded }: PDFUploaderProps) {
         {step === 'error' && (
           <button
             onClick={(e) => { e.stopPropagation(); setStep('idle'); setErrorMsg(''); }}
-            className="text-sm font-medium text-indigo-600 hover:text-indigo-700 transition-colors"
+            className="text-sm font-medium text-emerald-700 hover:text-emerald-800 transition-colors"
           >
             Try again
           </button>

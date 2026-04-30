@@ -11,12 +11,22 @@ export interface PDF {
 }
 
 export interface ResearchIntelligence {
+  category: string;
   executiveBrief: string;
   whyItMatters: string;
   keyClaims: string[];
   caveats: string[];
   entities: string[];
+  citationSignals: CitationSignal[];
   researchTrails: ResearchTrail[];
+}
+
+export interface CitationSignal {
+  label: string;
+  type: "citation" | "footnote" | "source" | "dataset" | "method";
+  reason: string;
+  query: string;
+  links: ResearchLink[];
 }
 
 export interface ResearchTrail {

@@ -41,7 +41,7 @@ export default function BookPage() {
   const loadPDF = async () => {
     const data = getLocalBook(pdfId);
     setPdf(data);
-    setLoadError(data ? null : 'This book is not in your browser library. Import its PaperDrive JSON file from the home page.');
+    setLoadError(data ? null : 'This report is not in your browser library. Import its PaperScout JSON file from the home page.');
     setIsLoading(false);
   };
 
@@ -81,8 +81,8 @@ export default function BookPage() {
         <div className="text-center space-y-6">
           <div className="flex justify-center">
             <div className="relative w-16 h-16">
-              <div className="absolute inset-0 bg-indigo-100 rounded-full blur-lg animate-pulse" />
-              <div className="absolute inset-0 animate-spin border-4 border-indigo-200 border-t-indigo-600 rounded-full" />
+              <div className="absolute inset-0 bg-emerald-100 rounded-full blur-lg animate-pulse" />
+              <div className="absolute inset-0 animate-spin border-4 border-emerald-200 border-t-emerald-700 rounded-full" />
             </div>
           </div>
           <div className="space-y-2">
@@ -111,7 +111,7 @@ export default function BookPage() {
           </div>
           <button
             onClick={() => router.push('/')}
-            className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors"
+            className="px-6 py-2.5 bg-emerald-700 text-white rounded-lg font-medium hover:bg-emerald-800 transition-colors"
           >
             Back to Library
           </button>
@@ -124,8 +124,8 @@ export default function BookPage() {
     return (
       <main className="min-h-screen bg-white flex items-center justify-center px-4">
         <div className="text-center space-y-6 max-w-md">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-100 rounded-2xl">
-            <BookOpen className="w-8 h-8 text-indigo-600" />
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-emerald-100 rounded-2xl">
+            <BookOpen className="w-8 h-8 text-emerald-700" />
           </div>
           <div className="space-y-2">
             <p className="text-lg font-semibold text-gray-900">No readable content</p>
@@ -135,7 +135,7 @@ export default function BookPage() {
           </div>
           <button
             onClick={() => router.push('/')}
-            className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors"
+            className="px-6 py-2.5 bg-emerald-700 text-white rounded-lg font-medium hover:bg-emerald-800 transition-colors"
           >
             Back to Library
           </button>
@@ -166,10 +166,10 @@ export default function BookPage() {
       />
 
       <div className="relative overflow-hidden">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_8%,rgba(251,191,36,0.25),transparent_28%),radial-gradient(circle_at_92%_18%,rgba(79,70,229,0.16),transparent_32%),linear-gradient(120deg,rgba(255,255,255,0.45),transparent_42%)]" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_8%,rgba(251,191,36,0.25),transparent_28%),radial-gradient(circle_at_92%_18%,rgba(16,185,129,0.18),transparent_32%),linear-gradient(120deg,rgba(255,255,255,0.45),transparent_42%)]" />
         <div className="pointer-events-none absolute inset-0 opacity-[0.08] [background-image:linear-gradient(#2b2118_1px,transparent_1px),linear-gradient(90deg,#2b2118_1px,transparent_1px)] [background-size:48px_48px]" />
 
-        <div className="relative mx-auto grid max-w-[1600px] grid-cols-1 gap-6 px-4 py-6 lg:px-6 xl:grid-cols-[280px_minmax(0,1fr)_300px]">
+        <div className="relative mx-auto grid max-w-[1600px] grid-cols-1 gap-6 px-4 py-6 lg:pl-6 lg:pr-[360px] xl:grid-cols-[280px_minmax(0,1fr)_340px] xl:pr-6">
           <aside className="order-2 rounded-[1.75rem] border border-stone-900/10 bg-white/70 p-4 shadow-[0_20px_80px_rgba(54,38,22,0.10)] backdrop-blur-xl xl:order-1 xl:sticky xl:top-24 xl:h-[calc(100vh-7rem)] xl:overflow-y-auto">
             <div className="mb-4 rounded-2xl bg-[#1d160f] p-4 text-white">
               <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-amber-200">Report Map</p>
@@ -240,7 +240,7 @@ export default function BookPage() {
             )}
           </section>
 
-          <aside className="order-3 hidden space-y-4 lg:block xl:sticky xl:top-24 xl:h-[calc(100vh-7rem)] xl:overflow-y-auto">
+          <aside className="order-3 hidden space-y-4 lg:fixed lg:bottom-6 lg:right-6 lg:top-24 lg:z-20 lg:block lg:w-[300px] lg:overflow-y-auto lg:pr-1 xl:w-[320px]">
             {intelligence && (
               <div className="rounded-[1.75rem] border border-stone-900/10 bg-[#1d160f] p-5 text-white shadow-[0_20px_80px_rgba(54,38,22,0.14)]">
                 <div className="flex items-center gap-3">
@@ -251,6 +251,9 @@ export default function BookPage() {
                     <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-amber-200">Executive Brief</p>
                     <h3 className="font-semibold">What this is saying</h3>
                   </div>
+                </div>
+                <div className="mt-4 inline-flex rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-100">
+                  {intelligence.category}
                 </div>
                 <p className="mt-4 text-sm leading-6 text-stone-300">{intelligence.executiveBrief}</p>
                 <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
@@ -324,9 +327,46 @@ export default function BookPage() {
               </div>
             ) : null}
 
+            {intelligence?.citationSignals?.length ? (
+              <div className="rounded-[1.75rem] border border-emerald-200 bg-emerald-50/90 p-5 shadow-[0_20px_80px_rgba(6,95,70,0.10)] backdrop-blur-xl">
+                <div className="flex items-center gap-3">
+                  <ScrollText className="h-5 w-5 text-emerald-800" />
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-700">Footnotes & Citations</p>
+                    <h3 className="font-semibold text-stone-950">Source Leads</h3>
+                  </div>
+                </div>
+                <div className="mt-4 space-y-3">
+                  {intelligence.citationSignals.slice(0, 6).map((signal, index) => (
+                    <div key={`${signal.label}-${index}`} className="rounded-2xl border border-emerald-200 bg-white p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <h4 className="text-sm font-bold leading-5 text-stone-950">{signal.label}</h4>
+                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-800">{signal.type}</span>
+                      </div>
+                      <p className="mt-1 text-xs leading-5 text-stone-600">{signal.reason}</p>
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {signal.links.slice(0, 3).map((link) => (
+                          <a
+                            key={link.url}
+                            href={link.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-800 hover:border-emerald-400 hover:bg-emerald-100"
+                          >
+                            {link.label}
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
             <div className="rounded-[1.75rem] border border-stone-900/10 bg-white/75 p-5 shadow-[0_20px_80px_rgba(54,38,22,0.10)] backdrop-blur-xl">
               <div className="flex items-center gap-3">
-                <Link2 className="h-5 w-5 text-indigo-700" />
+                <Link2 className="h-5 w-5 text-emerald-800" />
                 <h3 className="font-semibold text-stone-950">Research Trails</h3>
               </div>
               <p className="mt-3 text-sm leading-6 text-stone-600">Use the links below to leave the PDF and investigate related work, adjacent concepts, and evidence gaps.</p>
@@ -342,7 +382,7 @@ export default function BookPage() {
                           href={link.url}
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-white px-2 py-1 text-[11px] font-semibold text-indigo-700 hover:border-indigo-400 hover:bg-indigo-50"
+                          className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-white px-2 py-1 text-[11px] font-semibold text-emerald-800 hover:border-emerald-400 hover:bg-emerald-50"
                         >
                           {link.label}
                           <ExternalLink className="h-3 w-3" />

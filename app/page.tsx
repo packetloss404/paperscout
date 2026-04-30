@@ -39,10 +39,10 @@ export default function HomePage() {
           <Logo size="md" />
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-500 hidden sm:block">
-              {pdfs.length} paper{pdfs.length !== 1 ? 's' : ''} in library
+              {pdfs.length} report{pdfs.length !== 1 ? 's' : ''} in library
             </span>
             <div className="h-8 w-px bg-gray-200 hidden sm:block" />
-            <span className="text-sm font-medium text-indigo-600 hidden sm:block">
+            <span className="text-sm font-medium text-emerald-700 hidden sm:block">
               No login required
             </span>
           </div>
@@ -55,7 +55,7 @@ export default function HomePage() {
           <div className="max-w-2xl">
             <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4 tracking-tight">
               Turn reports into
-              <span className="text-indigo-600"> research intelligence</span>
+              <span className="text-emerald-700"> research intelligence</span>
             </h1>
             <p className="text-lg text-gray-600 mb-8 leading-relaxed">
               Upload a PDF and get an analyst brief, key claims, caveats, and follow-up research links to keep investigating.
@@ -63,15 +63,15 @@ export default function HomePage() {
             
             {/* Feature Pills */}
             <div className="flex flex-wrap gap-3">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-full text-sm font-medium">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-800 rounded-full text-sm font-medium">
                 <Sparkles className="w-4 h-4" />
                 Analyst Brief
               </div>
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-violet-50 text-violet-700 rounded-full text-sm font-medium">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-green-50 text-green-800 rounded-full text-sm font-medium">
                 <Search className="w-4 h-4" />
                 Research Trails
               </div>
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-purple-50 text-purple-700 rounded-full text-sm font-medium">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-teal-50 text-teal-800 rounded-full text-sm font-medium">
                 <Link2 className="w-4 h-4" />
                 Scholar Links
               </div>
@@ -91,10 +91,10 @@ export default function HomePage() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-xl font-semibold text-gray-900">
-                Upload a Paper
+                Upload a Report
               </h2>
               <p className="text-gray-500 text-sm mt-1">
-                Upload a PDF or import a previously exported PaperDrive JSON file
+                Upload a PDF or import a previously exported PaperScout JSON file
               </p>
             </div>
             <JsonImporter onImported={handleUploaded} />
@@ -111,8 +111,8 @@ export default function HomePage() {
               </h2>
               <p className="text-gray-500 text-sm mt-1">
                 {pdfs.length === 0 
-                  ? 'No papers yet' 
-                  : `${pdfs.length} paper${pdfs.length !== 1 ? 's' : ''} saved`
+                  ? 'No reports yet' 
+                  : `${pdfs.length} report${pdfs.length !== 1 ? 's' : ''} saved`
                 }
               </p>
             </div>
@@ -120,16 +120,16 @@ export default function HomePage() {
 
           {isLoading ? (
             <div className="flex items-center justify-center py-20">
-              <div className="w-8 h-8 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+              <div className="w-8 h-8 border-2 border-emerald-200 border-t-emerald-700 rounded-full animate-spin" />
             </div>
           ) : pdfs.length === 0 ? (
             <div className="text-center py-20 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
-              <div className="inline-flex items-center justify-center w-14 h-14 bg-indigo-100 rounded-xl mb-4">
-                <FileText className="w-7 h-7 text-indigo-600" />
+              <div className="inline-flex items-center justify-center w-14 h-14 bg-emerald-100 rounded-xl mb-4">
+                <FileText className="w-7 h-7 text-emerald-700" />
               </div>
-              <p className="text-gray-900 font-medium mb-1">No papers yet</p>
+              <p className="text-gray-900 font-medium mb-1">No reports yet</p>
               <p className="text-sm text-gray-500">
-                Upload your first research paper to get started
+                Upload your first report or research paper to get started
               </p>
             </div>
           ) : (

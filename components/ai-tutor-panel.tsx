@@ -96,7 +96,7 @@ export function AITutorPanel({ pdfId, pdfTitle, pdfContent }: AITutorPanelProps)
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed right-6 top-1/2 -translate-y-1/2 z-40 px-4 py-3 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-110 flex items-center gap-2 group"
+          className="fixed right-6 top-1/2 -translate-y-1/2 z-40 px-4 py-3 bg-gradient-to-r from-emerald-700 to-green-600 text-white rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-110 flex items-center gap-2 group"
         >
           <Sparkles className="w-5 h-5" />
           <span className="text-sm font-medium group-hover:block hidden">Ask AI</span>
@@ -107,10 +107,10 @@ export function AITutorPanel({ pdfId, pdfTitle, pdfContent }: AITutorPanelProps)
       {isOpen && (
         <div className="fixed right-0 top-0 bottom-0 w-96 bg-white border-l border-gray-200 shadow-xl z-50 flex flex-col overflow-hidden animate-in slide-in-from-right">
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-indigo-50">
+          <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-emerald-50 to-green-50">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-indigo-100 rounded-lg">
-                <Sparkles className="w-5 h-5 text-indigo-600" />
+              <div className="p-2 bg-emerald-100 rounded-lg">
+                <Sparkles className="w-5 h-5 text-emerald-700" />
               </div>
               <div>
                 <h2 className="font-semibold text-gray-900">AI Tutor</h2>
@@ -131,8 +131,8 @@ export function AITutorPanel({ pdfId, pdfTitle, pdfContent }: AITutorPanelProps)
           <div className="flex-1 overflow-y-auto p-5 space-y-4">
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full text-center px-4 py-8">
-                <div className="p-4 bg-indigo-100 rounded-2xl mb-4">
-                  <Sparkles className="w-8 h-8 text-indigo-600" />
+                <div className="p-4 bg-emerald-100 rounded-2xl mb-4">
+                  <Sparkles className="w-8 h-8 text-emerald-700" />
                 </div>
                 <h3 className="font-semibold text-gray-900 mb-2">
                   Ask me anything
@@ -164,7 +164,7 @@ export function AITutorPanel({ pdfId, pdfTitle, pdfContent }: AITutorPanelProps)
                 <div
                   className={`max-w-[85%] px-4 py-2.5 rounded-xl text-sm leading-relaxed ${
                     message.role === 'user'
-                      ? 'bg-indigo-600 text-white rounded-br-none'
+                      ? 'bg-emerald-700 text-white rounded-br-none'
                       : 'bg-gray-100 text-gray-900 rounded-bl-none'
                   }`}
                 >
@@ -176,7 +176,7 @@ export function AITutorPanel({ pdfId, pdfTitle, pdfContent }: AITutorPanelProps)
             {isLoading && (
               <div className="flex justify-start">
                 <div className="bg-gray-100 px-4 py-2.5 rounded-xl rounded-bl-none">
-                  <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
+                  <Loader2 className="w-4 h-4 animate-spin text-emerald-700" />
                 </div>
               </div>
             )}
@@ -201,14 +201,14 @@ export function AITutorPanel({ pdfId, pdfTitle, pdfContent }: AITutorPanelProps)
                   }
                 }}
                 placeholder="Ask..."
-                className="flex-1 px-3 py-2.5 bg-white border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                className="flex-1 px-3 py-2.5 bg-white border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-transparent text-sm"
                 rows={1}
                 disabled={isLoading}
               />
               <button
                 type="submit"
                 disabled={!input.trim() || isLoading}
-                className="px-3 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-2.5 bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Send className="w-4 h-4" />
               </button>

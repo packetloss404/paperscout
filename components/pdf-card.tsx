@@ -16,13 +16,13 @@ export function PDFCard({ pdf, onDelete }: PDFCardProps) {
   const [isExporting, setIsExporting] = useState(false);
 
   const handleDelete = async () => {
-    if (confirm('Are you sure you want to delete this paper?')) {
+    if (confirm('Are you sure you want to delete this report?')) {
       setIsDeleting(true);
       try {
         onDelete(pdf.id);
       } catch (error) {
         console.error('Delete error:', error);
-        alert('Error deleting paper');
+        alert('Error deleting report');
       } finally {
         setIsDeleting(false);
       }
@@ -33,7 +33,7 @@ export function PDFCard({ pdf, onDelete }: PDFCardProps) {
     setIsExporting(true);
     try {
       const exportPayload = {
-        type: 'paperdrive.book',
+        type: 'paperscout.report',
         version: 1,
         exportedAt: new Date().toISOString(),
         book: pdf,
@@ -45,7 +45,7 @@ export function PDFCard({ pdf, onDelete }: PDFCardProps) {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${slugify(pdf.title)}.paperdrive.json`;
+      link.download = `${slugify(pdf.title)}.paperscout.json`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -60,15 +60,18 @@ export function PDFCard({ pdf, onDelete }: PDFCardProps) {
 
   return (
     <Link href={`/book/${pdf.id}`}>
-      <div className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-lg hover:border-indigo-200 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer h-full flex flex-col group">
+      <div className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-lg hover:border-emerald-200 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer h-full flex flex-col group">
         <div className="flex items-start gap-3 mb-4">
-          <div className="p-2 bg-indigo-50 group-hover:bg-indigo-100 rounded-lg transition-colors flex-shrink-0">
-            <FileText className="w-5 h-5 text-indigo-600" />
+          <div className="p-2 bg-emerald-50 group-hover:bg-emerald-100 rounded-lg transition-colors flex-shrink-0">
+            <FileText className="w-5 h-5 text-emerald-700" />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-gray-900 line-clamp-2 group-hover:text-indigo-600 transition-colors text-sm leading-snug">
+            <h3 className="font-semibold text-gray-900 line-clamp-2 group-hover:text-emerald-700 transition-colors text-sm leading-snug">
               {pdf.title}
             </h3>
+            {pdf.intelligence?.category && (
+              <p className="mt-1 text-xs font-medium text-emerald-700">{pdf.intelligence.category}</p>
+            )}
           </div>
         </div>
 
@@ -99,8 +102,8 @@ export function PDFCard({ pdf, onDelete }: PDFCardProps) {
                   handleExport();
                 }}
                 disabled={isExporting}
-                className="p-1.5 hover:bg-indigo-50 rounded-lg transition-colors text-gray-400 hover:text-indigo-600"
-                title="Export PaperDrive JSON"
+                className="p-1.5 hover:bg-emerald-50 rounded-lg transition-colors text-gray-400 hover:text-emerald-700"
+                title="Export PaperScout JSON"
               >
                 <Download className="w-4 h-4" />
               </button>
@@ -128,5 +131,5 @@ function slugify(value: string) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '')
-    .slice(0, 80) || 'paperdrive-book';
+    .slice(0, 80) || 'paperscout-report';
 }

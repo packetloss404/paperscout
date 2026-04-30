@@ -62,14 +62,14 @@ export function MarginAnnotationPopover({
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Write your note..."
-          className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+          className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-transparent text-sm"
           rows={3}
         />
         <div className="flex gap-2">
           <button
             onClick={handleSubmit}
             disabled={!text.trim()}
-            className="flex-1 px-3 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 px-3 py-2 bg-emerald-700 text-white text-sm font-medium rounded-lg hover:bg-emerald-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Save
           </button>
@@ -105,7 +105,7 @@ export function MarginAnnotationPopover({
           {paragraphAnnotations.map((annotation) => (
             <div
               key={annotation.id}
-              className="text-xs p-2 bg-indigo-50 rounded border border-indigo-200 text-gray-700"
+              className="text-xs p-2 bg-emerald-50 rounded border border-emerald-200 text-gray-700"
             >
               {annotation.text}
             </div>
@@ -125,7 +125,7 @@ export function MarginAnnotationPopover({
       </button>
       <button
         onClick={() => setMode('input')}
-        className="w-full flex items-center gap-2 px-3 py-2 bg-indigo-50 text-indigo-900 rounded-lg hover:bg-indigo-100 transition-colors border border-indigo-200 text-sm font-medium"
+        className="w-full flex items-center gap-2 px-3 py-2 bg-emerald-50 text-emerald-950 rounded-lg hover:bg-emerald-100 transition-colors border border-emerald-200 text-sm font-medium"
       >
         <Plus className="w-4 h-4" /> Add note
       </button>
@@ -191,12 +191,12 @@ export function LeftMargin({
             <button
               key={annotation.id}
               title={annotation.text}
-              className="w-6 h-6 rounded-full bg-indigo-100 border-2 border-indigo-600 hover:bg-indigo-200 transition-colors group relative"
+              className="w-6 h-6 rounded-full bg-emerald-100 border-2 border-emerald-700 hover:bg-emerald-200 transition-colors group relative"
               onClick={() => {
                 handleParagraphClick(annotation.paragraphIndex);
               }}
             >
-              <span className="text-xs font-bold text-indigo-600">✓</span>
+              <span className="text-xs font-bold text-emerald-700">✓</span>
               <button
                 onClick={(e) => {
                   e.stopPropagation();

@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
 
     if (!book) {
       return NextResponse.json(
-        { error: 'Invalid PaperDrive JSON. Expected an exported book with chapters.' },
+        { error: 'Invalid PaperScout JSON. Expected an exported report with sections.' },
         { status: 400 }
       );
     }

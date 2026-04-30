@@ -7,8 +7,8 @@ const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'PaperDrive - AI-Powered Research Paper Reader',
-  description: 'Transform research papers into beautifully formatted, readable content with AI-powered summaries and an intelligent tutor.',
+  title: 'PaperScout - AI Research Intelligence',
+  description: 'Turn reports and research papers into analyst briefs, citation leads, footnote trails, and follow-up research links.',
   generator: 'v0.app',
   icons: {
     icon: [

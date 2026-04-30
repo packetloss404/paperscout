@@ -1,6 +1,6 @@
 import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
-import { type PDF, type ResearchIntelligence, type ResearchTrail } from "@/lib/db";
+import { type CitationSignal, type PDF, type ResearchIntelligence, type ResearchTrail } from "@/lib/db";
 
 interface ChapterResult {
   title: string;
@@ -58,7 +58,7 @@ export async function processPDF(
 async function analyzeAndChunk(text: string) {
   const { text: chunked } = await generateText({
     model: openai("gpt-4o-mini"),
-    system: `You are PaperDrive's research cartographer. Your job is to turn raw PDF text into a useful map of a report, research paper, policy document, or technical brief.
+    system: `You are PaperScout's research cartographer. Your job is to turn raw PDF text into a useful map of a report, research paper, policy document, or technical brief.
 
 Tasks:
 1. Identify the logical sections of the paper based on meaning, not just headings
@@ -96,7 +96,7 @@ async function convertChapter(
 ): Promise<{ title: string; markdown: string; originalText: string }> {
   const { text: markdown } = await generateText({
     model: openai("gpt-4o-mini"),
-    system: `You are PaperDrive's AI research analyst. Convert raw report text into a sharp Markdown analysis chapter for a professional reader who wants signal, context, and useful next steps.
+    system: `You are PaperScout's AI research analyst. Convert raw report text into a sharp Markdown analysis chapter for a professional reader who wants signal, context, and useful next steps.
 
 Rules:
 - Be faithful to the source. Do not invent claims, numbers, citations, or equations.
@@ -132,6 +132,9 @@ List limitations, ambiguity, missing evidence, or things a skeptical reader shou
 ## Follow-Up Threads
 Write 3-5 specific things the reader should look up next. Phrase them as search-ready topics, not links.
 
+## Citation and Footnote Leads
+Identify source trails a professional reader should follow. Include cited works, named authors, datasets, methods, organizations, standards, reports, and footnote-style clues if present. Phrase each as a search-ready lead.
+
 Use 2-4 blockquotes formatted exactly like this:
 > [Analyst Note] A useful insight, warning, implication, or interpretation anchored in the source.
 
@@ -141,7 +144,7 @@ Style:
 - Use bold labels and visual hierarchy.
 - Avoid school/study language.
 - Return ONLY the converted Markdown content, no explanations.`,
-    prompt: `Create a premium PaperDrive research-intelligence chapter from this source text.\n\nSection ${index} of ${total}: ${title}\n\nSOURCE TEXT:\n${text.slice(0, 12000)}`,
+    prompt: `Create a premium PaperScout research-intelligence chapter from this source text.\n\nSection ${index} of ${total}: ${title}\n\nSOURCE TEXT:\n${text.slice(0, 12000)}`,
   });
 
   return {
@@ -161,11 +164,20 @@ async function generateResearchIntelligence(
 
 Return ONLY raw JSON in this shape:
 {
+  "category": "one category such as AI Policy, Climate Risk, Cybersecurity, Public Health, Economics, Education, Energy, Biology, Finance, Legal, Technical Report, Market Research, Social Science, etc.",
   "executiveBrief": "4-6 sentence briefing of what this document says",
   "whyItMatters": "2-4 sentence explanation of why someone should care",
   "keyClaims": ["claim 1", "claim 2", "claim 3"],
   "caveats": ["caveat 1", "caveat 2"],
   "entities": ["important organization, method, dataset, author, region, company, technology, or concept"],
+  "citationSignals": [
+    {
+      "label": "named source, footnote clue, method, dataset, or citation trail",
+      "type": "citation | footnote | source | dataset | method",
+      "reason": "why this source trail matters",
+      "query": "specific search query to find this source or related work"
+    }
+  ],
   "researchTrails": [
     {
       "title": "short label",
@@ -179,6 +191,7 @@ Rules:
 - Do not fabricate URLs.
 - Do not add claims not supported by the source.
 - Produce 4-7 researchTrails.
+- Produce 4-8 citationSignals. These should focus on footnote/citation/source trails, named reports, datasets, standards, authors, and methods.
 - Make queries specific enough to be useful in Google Scholar, Semantic Scholar, arXiv, Crossref, OpenAlex, or normal web search.
 - Include trails for adjacent concepts, cited methods, important organizations/datasets, and skeptical follow-up where possible.`,
     prompt: `Analyze this document and produce a research intelligence brief.\n\nTitle: ${title}\n\nDOCUMENT TEXT:\n${text.slice(0, 60000)}`,
@@ -188,14 +201,23 @@ Rules:
     const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
     const parsed = JSON.parse(cleaned) as Omit<ResearchIntelligence, "researchTrails"> & {
       researchTrails?: Array<Omit<ResearchTrail, "links">>;
+      citationSignals?: Array<Omit<CitationSignal, "links">>;
     };
 
     return {
+      category: parsed.category || "Research report",
       executiveBrief: parsed.executiveBrief || "No executive brief generated.",
       whyItMatters: parsed.whyItMatters || "No implications generated.",
       keyClaims: Array.isArray(parsed.keyClaims) ? parsed.keyClaims.slice(0, 6) : [],
       caveats: Array.isArray(parsed.caveats) ? parsed.caveats.slice(0, 6) : [],
       entities: Array.isArray(parsed.entities) ? parsed.entities.slice(0, 12) : [],
+      citationSignals: (parsed.citationSignals || []).slice(0, 8).map((signal) => ({
+        label: signal.label || signal.query || "Source trail",
+        type: normalizeCitationType(signal.type),
+        reason: signal.reason || "Useful source trail based on the document.",
+        query: signal.query || signal.label || title,
+        links: buildResearchLinks(signal.query || signal.label || title),
+      })),
       researchTrails: (parsed.researchTrails || []).slice(0, 7).map((trail) => ({
         title: trail.title || trail.query || "Research trail",
         reason: trail.reason || "Useful next search based on the document.",
@@ -206,11 +228,21 @@ Rules:
   } catch {
     const fallbackQuery = title.replace(/\.pdf$/i, "");
     return {
+      category: "Research report",
       executiveBrief: "The document was processed, but the intelligence brief could not be parsed. Use the research links below as a starting point.",
       whyItMatters: "The report appears dense enough to warrant follow-up research across scholarly and web sources.",
       keyClaims: [],
       caveats: ["The AI-generated intelligence JSON could not be parsed reliably."],
       entities: [],
+      citationSignals: [
+        {
+          label: "Document title trail",
+          type: "source",
+          reason: "Find citations, mirrors, references, and related discussions around the report.",
+          query: fallbackQuery,
+          links: buildResearchLinks(fallbackQuery),
+        },
+      ],
       researchTrails: [
         {
           title: "Search the document title",
@@ -221,6 +253,13 @@ Rules:
       ],
     };
   }
+}
+
+function normalizeCitationType(value: unknown): CitationSignal["type"] {
+  if (value === "citation" || value === "footnote" || value === "source" || value === "dataset" || value === "method") {
+    return value;
+  }
+  return "source";
 }
 
 function buildResearchLinks(query: string) {

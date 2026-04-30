@@ -20,7 +20,7 @@ export function MarkdownRenderer({ content, onSelectText }: MarkdownRendererProp
 
   return (
     <div
-      className="paperdrive-markdown max-w-none text-stone-900 [&_.katex-display]:my-8 [&_.katex-display]:overflow-x-auto [&_.katex-display]:rounded-2xl [&_.katex-display]:border [&_.katex-display]:border-amber-200 [&_.katex-display]:bg-amber-50/70 [&_.katex-display]:px-6 [&_.katex-display]:py-5"
+      className="paperscout-markdown max-w-none text-stone-900 [&_.katex-display]:my-8 [&_.katex-display]:overflow-x-auto [&_.katex-display]:rounded-2xl [&_.katex-display]:border [&_.katex-display]:border-emerald-200 [&_.katex-display]:bg-emerald-50/70 [&_.katex-display]:px-6 [&_.katex-display]:py-5"
       onMouseUp={handleTextSelection}
     >
       <ReactMarkdown
@@ -99,7 +99,7 @@ export function MarkdownRenderer({ content, onSelectText }: MarkdownRendererProp
             <hr className="my-12 max-w-3xl border-0 border-t border-stone-200" {...props} />
           ),
           a: ({ node, ...props }) => (
-            <a className="font-semibold text-indigo-700 underline decoration-indigo-200 decoration-2 underline-offset-4 hover:text-indigo-900" {...props} />
+            <a className="font-semibold text-emerald-800 underline decoration-emerald-200 decoration-2 underline-offset-4 hover:text-emerald-950" {...props} />
           ),
         }}
       >

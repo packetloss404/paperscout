@@ -1,12 +1,14 @@
 import { type Annotation, type PDF } from '@/lib/db';
 
-const BOOKS_KEY = 'paperdrive.books.v1';
-const ANNOTATIONS_PREFIX = 'paperdrive.annotations.v1.';
+const BOOKS_KEY = 'paperscout.books.v1';
+const LEGACY_BOOKS_KEY = 'paperdrive.books.v1';
+const ANNOTATIONS_PREFIX = 'paperscout.annotations.v1.';
+const LEGACY_ANNOTATIONS_PREFIX = 'paperdrive.annotations.v1.';
 
 export function loadLocalBooks(): PDF[] {
   if (typeof window === 'undefined') return [];
   try {
-    const raw = window.localStorage.getItem(BOOKS_KEY);
+    const raw = window.localStorage.getItem(BOOKS_KEY) || window.localStorage.getItem(LEGACY_BOOKS_KEY);
     const books = raw ? (JSON.parse(raw) as PDF[]) : [];
     return books.sort(
       (a, b) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime()
@@ -35,13 +37,14 @@ export function deleteLocalBook(id: string): PDF[] {
   const next = loadLocalBooks().filter((book) => book.id !== id);
   saveLocalBooks(next);
   window.localStorage.removeItem(`${ANNOTATIONS_PREFIX}${id}`);
+  window.localStorage.removeItem(`${LEGACY_ANNOTATIONS_PREFIX}${id}`);
   return next;
 }
 
 export function loadLocalAnnotations(pdfId: string): Annotation[] {
   if (typeof window === 'undefined') return [];
   try {
-    const raw = window.localStorage.getItem(`${ANNOTATIONS_PREFIX}${pdfId}`);
+    const raw = window.localStorage.getItem(`${ANNOTATIONS_PREFIX}${pdfId}`) || window.localStorage.getItem(`${LEGACY_ANNOTATIONS_PREFIX}${pdfId}`);
     return raw ? (JSON.parse(raw) as Annotation[]) : [];
   } catch {
     return [];
