@@ -29,10 +29,12 @@ ${pdfContext}
 ---
 
 Instructions:
-- Answer questions based on the document content above
-- Be concise but thorough
-- If the answer isn't in the document, say so
-- Use clear formatting with paragraphs
+- Act like a research analyst, not a tutor.
+- Answer based on the document content above.
+- If the answer isn't in the document, say so.
+- When useful, suggest exact search queries the user can run next.
+- Do not fabricate URLs or citations.
+- Use concise headings and bullets.
 - When referencing specific parts, quote them briefly`;
 
     const messages: { role: 'user' | 'assistant'; content: string }[] = [];

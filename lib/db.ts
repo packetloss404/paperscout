@@ -7,6 +7,29 @@ export interface PDF {
   content?: string;
   status: "processing" | "complete" | "error";
   chapters?: Chapter[];
+  intelligence?: ResearchIntelligence;
+}
+
+export interface ResearchIntelligence {
+  executiveBrief: string;
+  whyItMatters: string;
+  keyClaims: string[];
+  caveats: string[];
+  entities: string[];
+  researchTrails: ResearchTrail[];
+}
+
+export interface ResearchTrail {
+  title: string;
+  reason: string;
+  query: string;
+  links: ResearchLink[];
+}
+
+export interface ResearchLink {
+  label: string;
+  url: string;
+  source: string;
 }
 
 export interface Chapter {

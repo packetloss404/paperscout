@@ -1,6 +1,6 @@
 import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
-import { type PDF } from "@/lib/db";
+import { type PDF, type ResearchIntelligence, type ResearchTrail } from "@/lib/db";
 
 interface ChapterResult {
   title: string;
@@ -16,6 +16,7 @@ export async function processPDF(
 ): Promise<{ status: string; book?: PDF; error?: string }> {
   try {
     const chapterMap = await analyzeAndChunk(rawText);
+    const intelligencePromise = generateResearchIntelligence(title, rawText);
 
     const processedChapters = await Promise.all(
       chapterMap.map((chunk, i) =>
@@ -28,6 +29,7 @@ export async function processPDF(
         )
       )
     );
+    const intelligence = await intelligencePromise;
 
     const book: PDF = {
       id: pdfId,
@@ -41,6 +43,7 @@ export async function processPDF(
         title: ch.title,
         content: ch.markdown,
       })),
+      intelligence,
       status: "complete",
     };
 
@@ -55,19 +58,19 @@ export async function processPDF(
 async function analyzeAndChunk(text: string) {
   const { text: chunked } = await generateText({
     model: openai("gpt-4o-mini"),
-    system: `You are PaperDrive's research cartographer. Your job is to turn raw PDF text into the chapter plan for a premium interactive textbook.
+    system: `You are PaperDrive's research cartographer. Your job is to turn raw PDF text into a useful map of a report, research paper, policy document, or technical brief.
 
 Tasks:
 1. Identify the logical sections of the paper based on meaning, not just headings
 2. Extract a strong title for each chapter (short, specific, 3-8 words)
-3. Keep each chapter coherent enough for an AI tutor to teach
+3. Keep each chapter coherent enough for an analyst to brief from it
 4. Return a JSON array of chapters with title and text
 
 Rules:
 - Split by major sections: Introduction, Methods, Results, Discussion, Conclusion, etc.
-- Merge tiny fragments into useful teaching chapters
-- Split long sections into teachable subsections when needed
-- Prefer titles that sound like textbook sections, not PDF debris
+- Merge tiny fragments into useful analytical sections
+- Split long sections into readable subsections when needed
+- Prefer titles that sound like report sections, not PDF debris
 - Preserve ALL content including mathematical notation (keep $...$ and $$...$$ LaTeX intact)
 - Preserve code snippets, figures references, table references
 - Return EXACTLY this JSON format (no markdown code blocks, just raw JSON):
@@ -93,53 +96,52 @@ async function convertChapter(
 ): Promise<{ title: string; markdown: string; originalText: string }> {
   const { text: markdown } = await generateText({
     model: openai("gpt-4o-mini"),
-    system: `You are PaperDrive's AI textbook author. Convert raw research paper text into a vivid, teachable Markdown chapter that feels like a premium study edition, not a plain summary.
+    system: `You are PaperDrive's AI research analyst. Convert raw report text into a sharp Markdown analysis chapter for a professional reader who wants signal, context, and useful next steps.
 
 Rules:
 - Be faithful to the source. Do not invent claims, numbers, citations, or equations.
-- Rewrite for comprehension: explain the paper as a textbook chapter for a smart reader new to the topic.
+- Rewrite for executive comprehension: preserve nuance, but make the section skimmable and useful.
 - Use strong Markdown structure with #, ##, ### headings.
 - Keep LaTeX math as-is: $inline$ and $$display$$ formulas.
 - Preserve citations, figure references, table references, and important terminology.
-- Convert messy extracted text into polished paragraphs, lists, tables, and callouts.
+- Convert messy extracted text into polished paragraphs, bullets, tables, and analyst callouts.
 
 Required chapter structure:
 # ${title}
 
-> [Big Idea] One crisp paragraph explaining what this chapter teaches and why it matters.
+> [Analyst Take] One crisp paragraph explaining what this section is really saying and why it matters.
 
-## Learning Objectives
-- 3-5 concrete things the reader will understand after this chapter.
+## What This Section Says
+- 3-5 bullets with the core claims, findings, or arguments.
 
-## Concept Map
-- Use 4-7 bullets in the form **Concept** -> relationship -> **Concept**.
+## Why It Matters
+Explain the practical, strategic, technical, or policy implications.
 
-## Guided Walkthrough
-Explain the source content in a clear, paced way. Use short paragraphs and subheadings.
+## Evidence Worth Keeping
+Preserve important data, methods, assumptions, measurements, comparisons, quotes, or caveats.
 
-## Evidence and Details
-Preserve the paper's important methods, assumptions, measurements, results, and caveats.
+## Key Entities and Concepts
+List named organizations, methods, datasets, technologies, authors, theories, regions, or sectors that matter.
 
 ## Math and Notation
 Include this only if math/formulas/notation appear in the source. Explain what the symbols mean.
 
-## Tutor Lens
+## Caveats and Open Questions
+List limitations, ambiguity, missing evidence, or things a skeptical reader should investigate.
+
+## Follow-Up Threads
+Write 3-5 specific things the reader should look up next. Phrase them as search-ready topics, not links.
+
 Use 2-4 blockquotes formatted exactly like this:
-> [Tutor Lens] A useful insight, warning, intuition, or interpretation anchored in the source.
-
-## Check Your Understanding
-Write 3-5 questions. Include a short answer after each question.
-
-## Glossary
-Define 4-8 important terms from the chapter. Omit if the source has too few terms.
+> [Analyst Note] A useful insight, warning, implication, or interpretation anchored in the source.
 
 Style:
-- Make it feel premium and useful.
+- Make it feel like a premium analyst brief.
 - Prefer clarity over density.
 - Use bold labels and visual hierarchy.
-- Avoid generic filler like "This chapter discusses".
+- Avoid school/study language.
 - Return ONLY the converted Markdown content, no explanations.`,
-    prompt: `Create a premium PaperDrive study-edition chapter from this source text.\n\nChapter ${index} of ${total}: ${title}\n\nSOURCE TEXT:\n${text.slice(0, 12000)}`,
+    prompt: `Create a premium PaperDrive research-intelligence chapter from this source text.\n\nSection ${index} of ${total}: ${title}\n\nSOURCE TEXT:\n${text.slice(0, 12000)}`,
   });
 
   return {
@@ -147,6 +149,109 @@ Style:
     markdown: markdown.trim(),
     originalText: text,
   };
+}
+
+async function generateResearchIntelligence(
+  title: string,
+  text: string
+): Promise<ResearchIntelligence> {
+  const { text: raw } = await generateText({
+    model: openai("gpt-4o-mini"),
+    system: `You are a research intelligence analyst. Extract the most useful professional brief from a report or paper and identify credible next-click research trails.
+
+Return ONLY raw JSON in this shape:
+{
+  "executiveBrief": "4-6 sentence briefing of what this document says",
+  "whyItMatters": "2-4 sentence explanation of why someone should care",
+  "keyClaims": ["claim 1", "claim 2", "claim 3"],
+  "caveats": ["caveat 1", "caveat 2"],
+  "entities": ["important organization, method, dataset, author, region, company, technology, or concept"],
+  "researchTrails": [
+    {
+      "title": "short label",
+      "reason": "why this is worth following",
+      "query": "search query a professional would use"
+    }
+  ]
+}
+
+Rules:
+- Do not fabricate URLs.
+- Do not add claims not supported by the source.
+- Produce 4-7 researchTrails.
+- Make queries specific enough to be useful in Google Scholar, Semantic Scholar, arXiv, Crossref, OpenAlex, or normal web search.
+- Include trails for adjacent concepts, cited methods, important organizations/datasets, and skeptical follow-up where possible.`,
+    prompt: `Analyze this document and produce a research intelligence brief.\n\nTitle: ${title}\n\nDOCUMENT TEXT:\n${text.slice(0, 60000)}`,
+  });
+
+  try {
+    const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    const parsed = JSON.parse(cleaned) as Omit<ResearchIntelligence, "researchTrails"> & {
+      researchTrails?: Array<Omit<ResearchTrail, "links">>;
+    };
+
+    return {
+      executiveBrief: parsed.executiveBrief || "No executive brief generated.",
+      whyItMatters: parsed.whyItMatters || "No implications generated.",
+      keyClaims: Array.isArray(parsed.keyClaims) ? parsed.keyClaims.slice(0, 6) : [],
+      caveats: Array.isArray(parsed.caveats) ? parsed.caveats.slice(0, 6) : [],
+      entities: Array.isArray(parsed.entities) ? parsed.entities.slice(0, 12) : [],
+      researchTrails: (parsed.researchTrails || []).slice(0, 7).map((trail) => ({
+        title: trail.title || trail.query || "Research trail",
+        reason: trail.reason || "Useful next search based on the document.",
+        query: trail.query || trail.title || title,
+        links: buildResearchLinks(trail.query || trail.title || title),
+      })),
+    };
+  } catch {
+    const fallbackQuery = title.replace(/\.pdf$/i, "");
+    return {
+      executiveBrief: "The document was processed, but the intelligence brief could not be parsed. Use the research links below as a starting point.",
+      whyItMatters: "The report appears dense enough to warrant follow-up research across scholarly and web sources.",
+      keyClaims: [],
+      caveats: ["The AI-generated intelligence JSON could not be parsed reliably."],
+      entities: [],
+      researchTrails: [
+        {
+          title: "Search the document title",
+          reason: "Find related papers, citations, summaries, and discussions around this report.",
+          query: fallbackQuery,
+          links: buildResearchLinks(fallbackQuery),
+        },
+      ],
+    };
+  }
+}
+
+function buildResearchLinks(query: string) {
+  const encoded = encodeURIComponent(query);
+  return [
+    {
+      label: "Google Scholar",
+      source: "Scholar",
+      url: `https://scholar.google.com/scholar?q=${encoded}`,
+    },
+    {
+      label: "Semantic Scholar",
+      source: "Papers",
+      url: `https://www.semanticscholar.org/search?q=${encoded}&sort=relevance`,
+    },
+    {
+      label: "OpenAlex",
+      source: "Open research graph",
+      url: `https://openalex.org/works?page=1&filter=default.search:${encoded}`,
+    },
+    {
+      label: "Crossref",
+      source: "DOI registry",
+      url: `https://search.crossref.org/search/works?q=${encoded}`,
+    },
+    {
+      label: "Web search",
+      source: "Broader web",
+      url: `https://www.google.com/search?q=${encoded}`,
+    },
+  ];
 }
 
 function splitNaive(text: string) {

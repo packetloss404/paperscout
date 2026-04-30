@@ -9,7 +9,7 @@ import { ChapterNav } from '@/components/chapter-nav';
 import { MarkdownRenderer } from '@/components/markdown-renderer';
 import { AITutorPanel } from '@/components/ai-tutor-panel';
 import { LeftMargin } from '@/components/left-margin';
-import { AlertCircle, BookOpen, BrainCircuit, FlaskConical, GraduationCap, Highlighter, Lightbulb, Network, ScrollText } from 'lucide-react';
+import { AlertCircle, BookOpen, BrainCircuit, ExternalLink, Highlighter, Link2, Network, ScrollText, Search, ShieldAlert, Target } from 'lucide-react';
 
 export default function BookPage() {
   const params = useParams();
@@ -104,7 +104,7 @@ export default function BookPage() {
             <AlertCircle className="w-8 h-8 text-red-600" />
           </div>
           <div className="space-y-2">
-            <p className="text-lg font-semibold text-gray-900">Book processing failed</p>
+            <p className="text-lg font-semibold text-gray-900">Book unavailable</p>
             <p className="text-sm text-gray-600">
               {loadError || 'The AI conversion did not complete successfully.'}
             </p>
@@ -148,11 +148,12 @@ export default function BookPage() {
     ? pdf.chapters.findIndex((c) => c.id === selectedChapter.id)
     : 0;
   const chapterContent = selectedChapter?.content || '';
-  const studySignals = [
-    { label: 'Big Idea', active: chapterContent.includes('[Big Idea]'), icon: Lightbulb },
-    { label: 'Concept Map', active: chapterContent.includes('Concept Map'), icon: Network },
-    { label: 'Tutor Lens', active: chapterContent.includes('[Tutor Lens]'), icon: BrainCircuit },
-    { label: 'Quiz', active: chapterContent.includes('Check Your Understanding'), icon: GraduationCap },
+  const intelligence = pdf.intelligence;
+  const intelligenceSignals = [
+    { label: 'Claims', active: Boolean(intelligence?.keyClaims?.length) || chapterContent.includes('What This Section Says'), icon: Target },
+    { label: 'Caveats', active: Boolean(intelligence?.caveats?.length) || chapterContent.includes('Caveats'), icon: ShieldAlert },
+    { label: 'Entities', active: Boolean(intelligence?.entities?.length) || chapterContent.includes('Key Entities'), icon: Network },
+    { label: 'Research Trails', active: Boolean(intelligence?.researchTrails?.length) || chapterContent.includes('Follow-Up Threads'), icon: Search },
   ];
 
   return (
@@ -171,9 +172,9 @@ export default function BookPage() {
         <div className="relative mx-auto grid max-w-[1600px] grid-cols-1 gap-6 px-4 py-6 lg:px-6 xl:grid-cols-[280px_minmax(0,1fr)_300px]">
           <aside className="order-2 rounded-[1.75rem] border border-stone-900/10 bg-white/70 p-4 shadow-[0_20px_80px_rgba(54,38,22,0.10)] backdrop-blur-xl xl:order-1 xl:sticky xl:top-24 xl:h-[calc(100vh-7rem)] xl:overflow-y-auto">
             <div className="mb-4 rounded-2xl bg-[#1d160f] p-4 text-white">
-              <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-amber-200">Study Map</p>
-              <h2 className="mt-2 text-lg font-semibold leading-tight">{pdf.chapters.length} teachable chapters</h2>
-              <p className="mt-2 text-xs leading-relaxed text-stone-300">Navigate the AI-generated textbook structure.</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-amber-200">Report Map</p>
+              <h2 className="mt-2 text-lg font-semibold leading-tight">{pdf.chapters.length} analyzed sections</h2>
+              <p className="mt-2 text-xs leading-relaxed text-stone-300">Navigate the AI-generated intelligence structure.</p>
             </div>
             <ChapterNav
               chapters={pdf.chapters}
@@ -193,7 +194,7 @@ export default function BookPage() {
                   <div className="relative max-w-4xl">
                     <div className="mb-6 flex flex-wrap items-center gap-3">
                       <span className="inline-flex items-center gap-2 rounded-full border border-amber-200/30 bg-amber-200/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.24em] text-amber-100">
-                        <SparklesBadge /> Study Edition
+                        <SparklesBadge /> Research Brief
                       </span>
                       <span className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs text-stone-200">
                         Chapter {currentChapterIndex + 1} of {pdf.chapters.length}
@@ -206,7 +207,7 @@ export default function BookPage() {
                       {selectedChapter.title}
                     </h1>
                     <p className="mt-5 max-w-2xl text-base leading-7 text-stone-300 md:text-lg">
-                      Generated as an interactive lesson with learning objectives, concept maps, tutor callouts, and self-check questions.
+                      Generated as an analyst brief with key claims, caveats, entities, and follow-up research trails.
                     </p>
                   </div>
                 </div>
@@ -240,6 +241,25 @@ export default function BookPage() {
           </section>
 
           <aside className="order-3 hidden space-y-4 lg:block xl:sticky xl:top-24 xl:h-[calc(100vh-7rem)] xl:overflow-y-auto">
+            {intelligence && (
+              <div className="rounded-[1.75rem] border border-stone-900/10 bg-[#1d160f] p-5 text-white shadow-[0_20px_80px_rgba(54,38,22,0.14)]">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-2xl bg-amber-200/15 p-3 text-amber-200">
+                    <BrainCircuit className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-amber-200">Executive Brief</p>
+                    <h3 className="font-semibold">What this is saying</h3>
+                  </div>
+                </div>
+                <p className="mt-4 text-sm leading-6 text-stone-300">{intelligence.executiveBrief}</p>
+                <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-stone-400">Why it matters</p>
+                  <p className="mt-2 text-sm leading-6 text-stone-200">{intelligence.whyItMatters}</p>
+                </div>
+              </div>
+            )}
+
             <div className="rounded-[1.75rem] border border-stone-900/10 bg-white/75 p-5 shadow-[0_20px_80px_rgba(54,38,22,0.10)] backdrop-blur-xl">
               <div className="mb-4 flex items-center gap-3">
                 <div className="rounded-2xl bg-amber-100 p-3 text-amber-800">
@@ -247,11 +267,11 @@ export default function BookPage() {
                 </div>
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-stone-500">AI Artifacts</p>
-                  <h3 className="font-semibold text-stone-950">Study Toolkit</h3>
+                  <h3 className="font-semibold text-stone-950">Research Signals</h3>
                 </div>
               </div>
               <div className="space-y-2">
-                {studySignals.map((signal) => {
+                {intelligenceSignals.map((signal) => {
                   const Icon = signal.icon;
                   return (
                     <div key={signal.label} className="flex items-center justify-between rounded-2xl border border-stone-200 bg-[#fffaf1] px-3 py-3">
@@ -271,15 +291,70 @@ export default function BookPage() {
                 <Highlighter className="h-5 w-5 text-amber-200" />
                 <h3 className="font-semibold">Margin Mode</h3>
               </div>
-              <p className="mt-3 text-sm leading-6 text-stone-300">Click any paragraph to attach highlights or notes. Export the book JSON when you want to carry the study edition elsewhere.</p>
+              <p className="mt-3 text-sm leading-6 text-stone-300">Click any paragraph to attach highlights or notes. Export the JSON when you want to preserve or share the analysis.</p>
             </div>
+
+            {intelligence?.keyClaims?.length ? (
+              <div className="rounded-[1.75rem] border border-stone-900/10 bg-white/75 p-5 shadow-[0_20px_80px_rgba(54,38,22,0.10)] backdrop-blur-xl">
+                <div className="flex items-center gap-3">
+                  <Target className="h-5 w-5 text-emerald-700" />
+                  <h3 className="font-semibold text-stone-950">Key Claims</h3>
+                </div>
+                <div className="mt-4 space-y-2">
+                  {intelligence.keyClaims.slice(0, 4).map((claim, index) => (
+                    <div key={index} className="rounded-2xl border border-stone-200 bg-[#fffaf1] p-3 text-sm leading-6 text-stone-700">
+                      {claim}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {intelligence?.caveats?.length ? (
+              <div className="rounded-[1.75rem] border border-orange-200 bg-orange-50/90 p-5 shadow-[0_20px_80px_rgba(154,52,18,0.10)] backdrop-blur-xl">
+                <div className="flex items-center gap-3">
+                  <ShieldAlert className="h-5 w-5 text-orange-700" />
+                  <h3 className="font-semibold text-stone-950">Caveats</h3>
+                </div>
+                <ul className="mt-4 space-y-2">
+                  {intelligence.caveats.slice(0, 4).map((caveat, index) => (
+                    <li key={index} className="text-sm leading-6 text-stone-700">{caveat}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
 
             <div className="rounded-[1.75rem] border border-stone-900/10 bg-white/75 p-5 shadow-[0_20px_80px_rgba(54,38,22,0.10)] backdrop-blur-xl">
               <div className="flex items-center gap-3">
-                <FlaskConical className="h-5 w-5 text-indigo-700" />
-                <h3 className="font-semibold text-stone-950">Reader Labs</h3>
+                <Link2 className="h-5 w-5 text-indigo-700" />
+                <h3 className="font-semibold text-stone-950">Research Trails</h3>
               </div>
-              <p className="mt-3 text-sm leading-6 text-stone-600">Ask the AI tutor to translate equations, critique assumptions, or turn the current chapter into flashcards.</p>
+              <p className="mt-3 text-sm leading-6 text-stone-600">Use the links below to leave the PDF and investigate related work, adjacent concepts, and evidence gaps.</p>
+              <div className="mt-4 space-y-4">
+                {(intelligence?.researchTrails || []).slice(0, 5).map((trail, index) => (
+                  <div key={`${trail.title}-${index}`} className="rounded-2xl border border-stone-200 bg-[#fffaf1] p-3">
+                    <h4 className="text-sm font-bold text-stone-950">{trail.title}</h4>
+                    <p className="mt-1 text-xs leading-5 text-stone-600">{trail.reason}</p>
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {trail.links.slice(0, 4).map((link) => (
+                        <a
+                          key={link.url}
+                          href={link.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-white px-2 py-1 text-[11px] font-semibold text-indigo-700 hover:border-indigo-400 hover:bg-indigo-50"
+                        >
+                          {link.label}
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                {!intelligence?.researchTrails?.length && (
+                  <p className="text-sm leading-6 text-stone-500">Reprocess this PDF to generate research trails.</p>
+                )}
+              </div>
             </div>
           </aside>
         </div>

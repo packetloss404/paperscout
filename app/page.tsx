@@ -7,7 +7,7 @@ import { PDFCard } from '@/components/pdf-card';
 import { PDF } from '@/lib/db';
 import { deleteLocalBook, loadLocalBooks, upsertLocalBook } from '@/lib/local-library';
 import { Logo } from '@/components/logo';
-import { FileJson, FileText, Sparkles, Zap } from 'lucide-react';
+import { FileJson, FileText, Link2, Search, Sparkles } from 'lucide-react';
 
 const PDFUploader = dynamic(() => import('@/components/pdf-uploader').then(mod => mod.PDFUploader), {
   ssr: false,
@@ -54,26 +54,26 @@ export default function HomePage() {
         <div className="max-w-6xl mx-auto px-6 py-16">
           <div className="max-w-2xl">
             <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4 tracking-tight">
-              Turn research papers into
-              <span className="text-indigo-600"> readable content</span>
+              Turn reports into
+              <span className="text-indigo-600"> research intelligence</span>
             </h1>
             <p className="text-lg text-gray-600 mb-8 leading-relaxed">
-              Upload any PDF and let AI transform it into beautifully formatted chapters with an intelligent tutor ready to explain complex concepts.
+              Upload a PDF and get an analyst brief, key claims, caveats, and follow-up research links to keep investigating.
             </p>
             
             {/* Feature Pills */}
             <div className="flex flex-wrap gap-3">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-full text-sm font-medium">
                 <Sparkles className="w-4 h-4" />
-                AI-Powered Summaries
+                Analyst Brief
               </div>
               <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-violet-50 text-violet-700 rounded-full text-sm font-medium">
-                <FileText className="w-4 h-4" />
-                Smart Chapters
+                <Search className="w-4 h-4" />
+                Research Trails
               </div>
               <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-purple-50 text-purple-700 rounded-full text-sm font-medium">
-                <Zap className="w-4 h-4" />
-                Instant Processing
+                <Link2 className="w-4 h-4" />
+                Scholar Links
               </div>
               <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-100 text-slate-700 rounded-full text-sm font-medium">
                 <FileJson className="w-4 h-4" />
@@ -152,7 +152,7 @@ export default function HomePage() {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <Logo size="sm" />
             <p className="text-sm text-gray-500">
-              Transform how you read research papers
+              Analyze reports, preserve the brief, follow the links
             </p>
           </div>
         </div>

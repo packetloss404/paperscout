@@ -16,10 +16,10 @@ interface AITutorPanelProps {
 }
 
 const SUGGESTED_PROMPTS = [
-  'Summarize the key findings',
-  'Explain the methodology',
-  'What are the main conclusions?',
-  'Define key terms',
+  'What are the key claims?',
+  'What should I investigate next?',
+  'What are the caveats?',
+  'Find adjacent concepts to research',
 ];
 
 export function AITutorPanel({ pdfId, pdfTitle, pdfContent }: AITutorPanelProps) {

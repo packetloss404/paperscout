@@ -43,7 +43,7 @@ export function BookHeader({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <span className="hidden sm:inline-flex items-center gap-1 rounded-full border border-amber-300/30 bg-amber-300/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.22em] text-amber-200">
-                <Sparkles className="h-3 w-3" /> AI Study Edition
+                <Sparkles className="h-3 w-3" /> AI Research Brief
               </span>
               <span className="hidden md:inline-flex items-center gap-1 text-xs text-stone-400">
                 <BookMarked className="h-3.5 w-3.5" /> {pageCount} source pages

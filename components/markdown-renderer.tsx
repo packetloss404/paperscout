@@ -66,7 +66,7 @@ export function MarkdownRenderer({ content, onSelectText }: MarkdownRendererProp
           blockquote: ({ node, ...props }) => (
             <blockquote className="my-8 max-w-3xl overflow-hidden rounded-[1.5rem] border border-amber-200 bg-gradient-to-br from-amber-50 via-orange-50 to-white p-0 shadow-[0_18px_50px_rgba(146,64,14,0.12)]">
               <div className="border-b border-amber-200/70 bg-amber-100/70 px-5 py-3 text-[10px] font-black uppercase tracking-[0.24em] text-amber-900">
-                Tutor Note
+                Analyst Note
               </div>
               <div className="px-6 py-5 font-serif text-lg leading-8 text-stone-800" {...props} />
             </blockquote>
