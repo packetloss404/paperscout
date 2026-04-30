@@ -23,7 +23,7 @@ export async function POST(
     paragraphIndex: body.paragraphIndex,
     type: body.type,
     text: body.text,
-    createdAt: new Date(),
+    createdAt: new Date().toISOString(),
   };
 
   await db.saveAnnotation(annotation);

@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
+import { useRouter } from 'next/navigation';
 import { JsonImporter } from '@/components/json-importer';
 import { PDFCard } from '@/components/pdf-card';
 import { PDF } from '@/lib/db';
 import { deleteLocalBook, loadLocalBooks, upsertLocalBook } from '@/lib/local-library';
+import { createSampleReport } from '@/lib/sample-report';
 import { Logo } from '@/components/logo';
-import { FileJson, FileText, Link2, Search, Sparkles } from 'lucide-react';
+import { Compass, FileJson, FileText, Link2, Search, Sparkles } from 'lucide-react';
 
 const PDFUploader = dynamic(() => import('@/components/pdf-uploader').then(mod => mod.PDFUploader), {
   ssr: false,
@@ -15,6 +17,7 @@ const PDFUploader = dynamic(() => import('@/components/pdf-uploader').then(mod =
 });
 
 export default function HomePage() {
+  const router = useRouter();
   const [pdfs, setPdfs] = useState<PDF[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -29,6 +32,12 @@ export default function HomePage() {
 
   const handleUploaded = (book: PDF) => {
     setPdfs(upsertLocalBook(book));
+  };
+
+  const handleLoadDemo = () => {
+    const sample = createSampleReport();
+    setPdfs(upsertLocalBook(sample));
+    router.push(`/book/${sample.id}`);
   };
 
   return (
@@ -61,6 +70,24 @@ export default function HomePage() {
               Upload a PDF and get an analyst brief, key claims, caveats, and follow-up research links to keep investigating.
             </p>
             
+            <div className="mb-8 flex flex-col gap-3 sm:flex-row">
+              <button
+                type="button"
+                onClick={handleLoadDemo}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-900/10 transition-all hover:-translate-y-0.5 hover:bg-emerald-800 hover:shadow-xl"
+              >
+                <Compass className="h-4 w-4" />
+                Load demo investigation
+              </button>
+              <a
+                href="#upload"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white px-5 py-3 text-sm font-bold text-gray-800 shadow-sm transition-all hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-900"
+              >
+                <FileText className="h-4 w-4" />
+                Upload your own PDF
+              </a>
+            </div>
+
             {/* Feature Pills */}
             <div className="flex flex-wrap gap-3">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-800 rounded-full text-sm font-medium">
@@ -87,7 +114,7 @@ export default function HomePage() {
       {/* Main Content */}
       <div className="max-w-6xl mx-auto px-6 py-12">
         {/* Upload Section */}
-        <section className="mb-16">
+        <section id="upload" className="mb-16 scroll-mt-24">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-xl font-semibold text-gray-900">

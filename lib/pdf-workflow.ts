@@ -1,6 +1,14 @@
 import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
-import { type CitationSignal, type PDF, type ResearchIntelligence, type ResearchTrail } from "@/lib/db";
+import {
+  type CitationSignal,
+  type ClaimCard,
+  type PDF,
+  type ResearchIntelligence,
+  type ResearchTrail,
+  type SkepticSignal,
+  type WeirdFinding,
+} from "@/lib/db";
 
 interface ChapterResult {
   title: string;
@@ -55,7 +63,7 @@ export async function processPDF(
   }
 }
 
-async function analyzeAndChunk(text: string) {
+async function analyzeAndChunk(text: string): Promise<Array<{ title: string; text: string }>> {
   const { text: chunked } = await generateText({
     model: openai("gpt-4o-mini"),
     system: `You are PaperScout's research cartographer. Your job is to turn raw PDF text into a useful map of a report, research paper, policy document, or technical brief.
@@ -80,7 +88,7 @@ Rules:
 
   try {
     const cleaned = chunked.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    return JSON.parse(cleaned);
+    return JSON.parse(cleaned) as Array<{ title: string; text: string }>;
   } catch {
     const fallback = splitNaive(text);
     return fallback;
@@ -154,6 +162,16 @@ Style:
   };
 }
 
+type RawResearchIntelligence = Partial<
+  Pick<ResearchIntelligence, "category" | "executiveBrief" | "whyItMatters" | "keyClaims" | "caveats" | "entities">
+> & {
+  claimCards?: Array<Partial<Omit<ClaimCard, "links">>>;
+  citationSignals?: Array<Partial<Omit<CitationSignal, "links">>>;
+  researchTrails?: Array<Partial<Omit<ResearchTrail, "links">>>;
+  skepticMode?: Array<Partial<Omit<SkepticSignal, "links">>>;
+  weirdFindings?: Array<Partial<Omit<WeirdFinding, "links">>>;
+};
+
 async function generateResearchIntelligence(
   title: string,
   text: string
@@ -168,6 +186,15 @@ Return ONLY raw JSON in this shape:
   "executiveBrief": "4-6 sentence briefing of what this document says",
   "whyItMatters": "2-4 sentence explanation of why someone should care",
   "keyClaims": ["claim 1", "claim 2", "claim 3"],
+  "claimCards": [
+    {
+      "claim": "one important claim stated as a complete sentence",
+      "evidence": "short quoted or paraphrased evidence snippet from the document",
+      "caveat": "what would make this claim weaker, narrower, or worth checking",
+      "supportLevel": "Strong | Medium | Weak | Needs verification",
+      "query": "specific search query to verify or contextualize this claim"
+    }
+  ],
   "caveats": ["caveat 1", "caveat 2"],
   "entities": ["important organization, method, dataset, author, region, company, technology, or concept"],
   "citationSignals": [
@@ -184,6 +211,22 @@ Return ONLY raw JSON in this shape:
       "reason": "why this is worth following",
       "query": "search query a professional would use"
     }
+  ],
+  "skepticMode": [
+    {
+      "label": "short skeptical check",
+      "type": "assumption | missingEvidence | leap | verification | dissent",
+      "reason": "why a skeptical reader should not fully trust this yet",
+      "query": "specific search query to verify, falsify, or find disagreement"
+    }
+  ],
+  "weirdFindings": [
+    {
+      "label": "surprising, buried, or counterintuitive finding",
+      "type": "Buried caveat | Big claim | Thin support | Rabbit hole",
+      "reason": "why this stands out",
+      "query": "specific follow-up search query"
+    }
   ]
 }
 
@@ -192,6 +235,9 @@ Rules:
 - Do not add claims not supported by the source.
 - Produce 4-7 researchTrails.
 - Produce 4-8 citationSignals. These should focus on footnote/citation/source trails, named reports, datasets, standards, authors, and methods.
+- Produce 3-6 claimCards with evidence and caveats grounded in the document.
+- Produce 4-6 skepticMode checks that identify fragile assumptions, missing evidence, suspicious leaps, claims needing verification, or likely dissenters.
+- Produce 3-5 weirdFindings that would make a demo audience say "wait, what?" without exaggerating the source.
 - Make queries specific enough to be useful in Google Scholar, Semantic Scholar, arXiv, Crossref, OpenAlex, or normal web search.
 - Include trails for adjacent concepts, cited methods, important organizations/datasets, and skeptical follow-up where possible.`,
     prompt: `Analyze this document and produce a research intelligence brief.\n\nTitle: ${title}\n\nDOCUMENT TEXT:\n${text.slice(0, 60000)}`,
@@ -199,16 +245,21 @@ Rules:
 
   try {
     const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    const parsed = JSON.parse(cleaned) as Omit<ResearchIntelligence, "researchTrails"> & {
-      researchTrails?: Array<Omit<ResearchTrail, "links">>;
-      citationSignals?: Array<Omit<CitationSignal, "links">>;
-    };
+    const parsed = JSON.parse(cleaned) as RawResearchIntelligence;
 
     return {
       category: parsed.category || "Research report",
       executiveBrief: parsed.executiveBrief || "No executive brief generated.",
       whyItMatters: parsed.whyItMatters || "No implications generated.",
       keyClaims: Array.isArray(parsed.keyClaims) ? parsed.keyClaims.slice(0, 6) : [],
+      claimCards: (parsed.claimCards || []).slice(0, 6).map((card) => ({
+        claim: card.claim || "Claim worth verifying",
+        evidence: card.evidence || "The source text supports this enough to flag it for review.",
+        caveat: card.caveat || "Verify this against the original source and adjacent work.",
+        supportLevel: normalizeSupportLevel(card.supportLevel),
+        query: card.query || card.claim || title,
+        links: buildResearchLinks(card.query || card.claim || title),
+      })),
       caveats: Array.isArray(parsed.caveats) ? parsed.caveats.slice(0, 6) : [],
       entities: Array.isArray(parsed.entities) ? parsed.entities.slice(0, 12) : [],
       citationSignals: (parsed.citationSignals || []).slice(0, 8).map((signal) => ({
@@ -224,6 +275,20 @@ Rules:
         query: trail.query || trail.title || title,
         links: buildResearchLinks(trail.query || trail.title || title),
       })),
+      skepticMode: (parsed.skepticMode || []).slice(0, 6).map((signal) => ({
+        label: signal.label || signal.query || "Skeptical check",
+        type: normalizeSkepticType(signal.type),
+        reason: signal.reason || "This claim or assumption needs outside verification.",
+        query: signal.query || signal.label || title,
+        links: buildResearchLinks(signal.query || signal.label || title),
+      })),
+      weirdFindings: (parsed.weirdFindings || []).slice(0, 5).map((finding) => ({
+        label: finding.label || finding.query || "Interesting anomaly",
+        type: normalizeWeirdType(finding.type),
+        reason: finding.reason || "This stands out as a useful follow-up thread.",
+        query: finding.query || finding.label || title,
+        links: buildResearchLinks(finding.query || finding.label || title),
+      })),
     };
   } catch {
     const fallbackQuery = title.replace(/\.pdf$/i, "");
@@ -232,6 +297,7 @@ Rules:
       executiveBrief: "The document was processed, but the intelligence brief could not be parsed. Use the research links below as a starting point.",
       whyItMatters: "The report appears dense enough to warrant follow-up research across scholarly and web sources.",
       keyClaims: [],
+      claimCards: [],
       caveats: ["The AI-generated intelligence JSON could not be parsed reliably."],
       entities: [],
       citationSignals: [
@@ -251,6 +317,16 @@ Rules:
           links: buildResearchLinks(fallbackQuery),
         },
       ],
+      skepticMode: [
+        {
+          label: "Reprocess or manually verify",
+          type: "verification",
+          reason: "The structured intelligence response could not be parsed, so automated skeptic checks are unavailable.",
+          query: fallbackQuery,
+          links: buildResearchLinks(fallbackQuery),
+        },
+      ],
+      weirdFindings: [],
     };
   }
 }
@@ -260,6 +336,27 @@ function normalizeCitationType(value: unknown): CitationSignal["type"] {
     return value;
   }
   return "source";
+}
+
+function normalizeSupportLevel(value: unknown): ClaimCard["supportLevel"] {
+  if (value === "Strong" || value === "Medium" || value === "Weak" || value === "Needs verification") {
+    return value;
+  }
+  return "Needs verification";
+}
+
+function normalizeSkepticType(value: unknown): SkepticSignal["type"] {
+  if (value === "assumption" || value === "missingEvidence" || value === "leap" || value === "verification" || value === "dissent") {
+    return value;
+  }
+  return "verification";
+}
+
+function normalizeWeirdType(value: unknown): WeirdFinding["type"] {
+  if (value === "Buried caveat" || value === "Big claim" || value === "Thin support" || value === "Rabbit hole") {
+    return value;
+  }
+  return "Rabbit hole";
 }
 
 function buildResearchLinks(query: string) {

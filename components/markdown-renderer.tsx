@@ -63,24 +63,27 @@ export function MarkdownRenderer({ content, onSelectText }: MarkdownRendererProp
           em: ({ node, ...props }) => (
             <em className="text-stone-700" {...props} />
           ),
-          blockquote: ({ node, ...props }) => (
-            <blockquote className="my-8 max-w-3xl overflow-hidden rounded-[1.5rem] border border-amber-200 bg-gradient-to-br from-amber-50 via-orange-50 to-white p-0 shadow-[0_18px_50px_rgba(146,64,14,0.12)]">
+          blockquote: ({ node, children, ...props }) => (
+            <blockquote className="my-8 max-w-3xl overflow-hidden rounded-[1.5rem] border border-amber-200 bg-gradient-to-br from-amber-50 via-orange-50 to-white p-0 shadow-[0_18px_50px_rgba(146,64,14,0.12)]" {...props}>
               <div className="border-b border-amber-200/70 bg-amber-100/70 px-5 py-3 text-[10px] font-black uppercase tracking-[0.24em] text-amber-900">
                 Analyst Note
               </div>
-              <div className="px-6 py-5 font-serif text-lg leading-8 text-stone-800" {...props} />
+              <div className="px-6 py-5 font-serif text-lg leading-8 text-stone-800">{children}</div>
             </blockquote>
           ),
-          code: ({ node, inline, ...props }) => (
-            <code
-              className={
-                inline
-                  ? 'rounded-md bg-stone-900 px-1.5 py-0.5 font-mono text-sm text-amber-100'
-                  : 'font-mono text-sm text-amber-100'
-              }
-              {...props}
-            />
-          ),
+          code: ({ node, className, ...props }) => {
+            const isInline = !className?.includes('language-');
+            return (
+              <code
+                className={
+                  isInline
+                    ? 'rounded-md bg-stone-900 px-1.5 py-0.5 font-mono text-sm text-amber-100'
+                    : 'font-mono text-sm text-amber-100'
+                }
+                {...props}
+              />
+            );
+          },
           pre: ({ node, ...props }) => (
             <pre className="my-8 max-w-3xl overflow-x-auto rounded-2xl border border-stone-800 bg-stone-950 p-5 shadow-xl" {...props} />
           ),

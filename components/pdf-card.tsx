@@ -3,7 +3,7 @@
 import { PDF } from '@/lib/db';
 import { formatDate } from '@/lib/utils';
 import Link from 'next/link';
-import { Download, FileText, Trash2, Clock, Layers } from 'lucide-react';
+import { Download, FileText, Trash2, Clock, Layers, ClipboardList } from 'lucide-react';
 import { useState } from 'react';
 
 interface PDFCardProps {
@@ -34,7 +34,7 @@ export function PDFCard({ pdf, onDelete }: PDFCardProps) {
     try {
       const exportPayload = {
         type: 'paperscout.report',
-        version: 1,
+        version: 2,
         exportedAt: new Date().toISOString(),
         book: pdf,
       };
@@ -84,6 +84,12 @@ export function PDFCard({ pdf, onDelete }: PDFCardProps) {
             <Clock className="w-3.5 h-3.5" />
             <span>{formatDate(new Date(pdf.dateAdded))}</span>
           </div>
+          {pdf.scoutBoard?.length ? (
+            <div className="flex items-center gap-2 text-emerald-700">
+              <ClipboardList className="w-3.5 h-3.5" />
+              <span>{pdf.scoutBoard.length} Scout Board items</span>
+            </div>
+          ) : null}
         </div>
 
         <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">

@@ -8,6 +8,7 @@ export interface PDF {
   status: "processing" | "complete" | "error";
   chapters?: Chapter[];
   intelligence?: ResearchIntelligence;
+  scoutBoard?: ScoutBoardItem[];
 }
 
 export interface ResearchIntelligence {
@@ -15,10 +16,22 @@ export interface ResearchIntelligence {
   executiveBrief: string;
   whyItMatters: string;
   keyClaims: string[];
+  claimCards?: ClaimCard[];
   caveats: string[];
   entities: string[];
   citationSignals: CitationSignal[];
   researchTrails: ResearchTrail[];
+  skepticMode?: SkepticSignal[];
+  weirdFindings?: WeirdFinding[];
+}
+
+export interface ClaimCard {
+  claim: string;
+  evidence: string;
+  caveat: string;
+  supportLevel: "Strong" | "Medium" | "Weak" | "Needs verification";
+  query: string;
+  links: ResearchLink[];
 }
 
 export interface CitationSignal {
@@ -34,6 +47,32 @@ export interface ResearchTrail {
   reason: string;
   query: string;
   links: ResearchLink[];
+}
+
+export interface SkepticSignal {
+  label: string;
+  type: "assumption" | "missingEvidence" | "leap" | "verification" | "dissent";
+  reason: string;
+  query: string;
+  links: ResearchLink[];
+}
+
+export interface WeirdFinding {
+  label: string;
+  type: "Buried caveat" | "Big claim" | "Thin support" | "Rabbit hole";
+  reason: string;
+  query: string;
+  links: ResearchLink[];
+}
+
+export interface ScoutBoardItem {
+  id: string;
+  kind: "claim" | "caveat" | "citation" | "trail" | "entity" | "skeptic" | "weird";
+  title: string;
+  detail: string;
+  status: "To verify" | "Interesting" | "Read next" | "Done";
+  links?: ResearchLink[];
+  createdAt: string;
 }
 
 export interface ResearchLink {

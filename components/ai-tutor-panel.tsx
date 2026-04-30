@@ -16,9 +16,9 @@ interface AITutorPanelProps {
 }
 
 const SUGGESTED_PROMPTS = [
-  'What are the key claims?',
-  'What should I investigate next?',
-  'What are the caveats?',
+  'Build me a verification checklist',
+  'What should I not trust yet?',
+  'What are the weirdest findings?',
   'Find adjacent concepts to research',
 ];
 
@@ -113,7 +113,7 @@ export function AITutorPanel({ pdfId, pdfTitle, pdfContent }: AITutorPanelProps)
                 <Sparkles className="w-5 h-5 text-emerald-700" />
               </div>
               <div>
-                <h2 className="font-semibold text-gray-900">AI Tutor</h2>
+                <h2 className="font-semibold text-gray-900">Scout Chat</h2>
                 <p className="text-xs text-gray-600 truncate max-w-[200px]">
                   {pdfTitle}
                 </p>
@@ -138,7 +138,7 @@ export function AITutorPanel({ pdfId, pdfTitle, pdfContent }: AITutorPanelProps)
                   Ask me anything
                 </h3>
                 <p className="text-sm text-gray-600 mb-6">
-                  I can help explain concepts, summarize sections, or answer questions.
+                  Ask for verification checks, skeptical reads, source leads, or adjacent research trails.
                 </p>
                 <div className="space-y-2 w-full">
                   {SUGGESTED_PROMPTS.map((suggestion) => (

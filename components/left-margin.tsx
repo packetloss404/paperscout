@@ -138,7 +138,7 @@ interface LeftMarginProps {
   annotations: Annotation[];
   onAddAnnotation: (paragraphIndex: number, type: 'highlight' | 'annotation', text: string) => void;
   onDeleteAnnotation: (id: string) => void;
-  contentRef: React.RefObject<HTMLDivElement>;
+  contentRef: React.RefObject<HTMLDivElement | null>;
 }
 
 export function LeftMargin({
