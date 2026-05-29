@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getHookByToken, resumeHook } from 'workflow/api';
+import { getHookByToken, getRun, resumeHook } from 'workflow/api';
 import { type ChapterMapSummaryItem } from '@/lib/pdf-workflow';
 
 function tokenForRun(runId: string) {
   return `chapter-map:${runId}`;
+}
+
+function isTerminalStatus(status: string) {
+  return status === 'completed' || status === 'failed' || status === 'cancelled' || status === 'canceled';
 }
 
 function normalizeChapters(value: unknown): Array<{ index: number; title: string }> | null {
@@ -54,6 +58,21 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const run = getRun(runId);
+
+    if (!(await run.exists)) {
+      return NextResponse.json({ error: 'Workflow run not found', runId }, { status: 404 });
+    }
+
+    const workflowStatus = await run.status;
+
+    if (isTerminalStatus(workflowStatus)) {
+      return NextResponse.json(
+        { error: `Cannot approve a ${workflowStatus} workflow run`, runId, status: workflowStatus, workflowStatus },
+        { status: 409 }
+      );
+    }
+
     const hook = await resumeHook(tokenForRun(runId), {
       chapters,
       approvedAt: new Date().toISOString(),

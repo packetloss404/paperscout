@@ -7,9 +7,10 @@ import { AIChatPanel } from './ai-chat-panel';
 interface ChatButtonProps {
   pdfId: string;
   pdfTitle: string;
+  pdfContent: string;
 }
 
-export function ChatButton({ pdfId, pdfTitle }: ChatButtonProps) {
+export function ChatButton({ pdfId, pdfTitle, pdfContent }: ChatButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
@@ -33,6 +34,7 @@ export function ChatButton({ pdfId, pdfTitle }: ChatButtonProps) {
       <AIChatPanel
         pdfId={pdfId}
         pdfTitle={pdfTitle}
+        pdfContent={pdfContent}
         isOpen={isOpen}
         onClose={() => setIsOpen(false)}
       />

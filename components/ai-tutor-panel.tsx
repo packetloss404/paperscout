@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { X, Send, Loader2, ChevronLeft, Sparkles } from 'lucide-react';
+import { Send, Loader2, ChevronLeft, Sparkles } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -78,7 +78,7 @@ export function AITutorPanel({ pdfId, pdfTitle, pdfContent }: AITutorPanelProps)
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
-    } catch (error) {
+    } catch {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',

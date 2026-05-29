@@ -11,7 +11,16 @@ import { AITutorPanel } from '@/components/ai-tutor-panel';
 import { LeftMargin } from '@/components/left-margin';
 import { AlertCircle, BookOpen, BrainCircuit, CheckCircle2, ClipboardList, ExternalLink, Eye, Highlighter, Link2, Network, Plus, ScrollText, Search, ShieldAlert, Target, Trash2 } from 'lucide-react';
 
-const SCOUT_STATUSES: ScoutBoardItem['status'][] = ['To verify', 'Interesting', 'Read next', 'Done'];
+const SCOUT_STATUS_GROUPS: { label: string; statuses: ScoutBoardItem['status'][] }[] = [
+  {
+    label: 'Verification',
+    statuses: ['Needs verification', 'Checking sources', 'Needs source', 'Verified', 'Contradicted'],
+  },
+  {
+    label: 'Legacy import statuses',
+    statuses: ['To verify', 'Interesting', 'Read next', 'Done'],
+  },
+];
 
 export default function BookPage() {
   const params = useParams();
@@ -28,30 +37,17 @@ export default function BookPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadPDF();
-  }, [pdfId]);
-
-  useEffect(() => {
-    if (selectedChapter === null && pdf?.chapters && pdf.chapters.length > 0) {
-      setSelectedChapter(pdf.chapters[0]);
-    }
-  }, [pdf]);
-
-  useEffect(() => {
-    loadAnnotations();
-  }, [pdfId]);
-
-  const loadPDF = async () => {
     const data = getLocalBook(pdfId);
     setPdf(data);
+    setSelectedChapter(data?.chapters?.[0] || null);
     setScoutBoard(data?.scoutBoard || []);
     setLoadError(data ? null : 'This report is not in your browser library. Import its PaperScout JSON file from the home page.');
     setIsLoading(false);
-  };
+  }, [pdfId]);
 
-  const loadAnnotations = async () => {
+  useEffect(() => {
     setAnnotations(loadLocalAnnotations(pdfId));
-  };
+  }, [pdfId]);
 
   const handleAddAnnotation = async (
     paragraphIndex: number,
@@ -93,7 +89,7 @@ export default function BookPage() {
       {
         ...item,
         id: crypto.randomUUID(),
-        status: item.status || 'To verify',
+        status: item.status || 'Needs verification',
         createdAt: new Date().toISOString(),
       },
       ...scoutBoard,
@@ -213,7 +209,7 @@ export default function BookPage() {
   const claimCards = getClaimCards(intelligence);
   const skepticSignals = intelligence?.skepticMode || [];
   const weirdFindings = intelligence?.weirdFindings || [];
-  const completedScoutItems = scoutBoard.filter((item) => item.status === 'Done').length;
+  const resolvedScoutItems = scoutBoard.filter((item) => isResolvedScoutStatus(item.status)).length;
   const intelligenceSignals = [
     { label: 'Claim Cards', active: Boolean(claimCards.length) || chapterContent.includes('What This Section Says'), icon: Target },
     { label: 'Caveats', active: Boolean(intelligence?.caveats?.length) || chapterContent.includes('Caveats'), icon: ShieldAlert },
@@ -294,17 +290,17 @@ export default function BookPage() {
                           <div className="relative flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
                             <div>
                               <p className="inline-flex items-center gap-2 rounded-full border border-emerald-200/25 bg-emerald-200/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.24em] text-emerald-100">
-                                <ClipboardList className="h-3.5 w-3.5" /> Scout Board Starter Pack
+                                <ClipboardList className="h-3.5 w-3.5" /> Verification Queue Starter Pack
                               </p>
                               <h2 className="mt-4 text-2xl font-black tracking-tight md:text-3xl">Turn this report into a follow-up investigation</h2>
                               <p className="mt-2 max-w-2xl text-sm leading-6 text-emerald-50/80">
-                                Save claims, doubts, weird findings, and source leads into a portable board that exports with this PaperScout JSON.
+                                Queue claims, doubts, weird findings, and source leads for follow-up checks that export with this PaperScout JSON.
                               </p>
                             </div>
                             <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm">
-                              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-100">Board Progress</p>
-                              <p className="mt-1 text-2xl font-black">{completedScoutItems}/{scoutBoard.length}</p>
-                              <p className="text-xs text-emerald-50/70">items done</p>
+                              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-100">Verification Progress</p>
+                              <p className="mt-1 text-2xl font-black">{resolvedScoutItems}/{scoutBoard.length}</p>
+                              <p className="text-xs text-emerald-50/70">follow-ups resolved</p>
                             </div>
                           </div>
                         </div>
@@ -359,7 +355,7 @@ export default function BookPage() {
                                       className="mt-auto flex items-center justify-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-900 transition-colors hover:border-emerald-400 hover:bg-emerald-100 disabled:border-stone-200 disabled:bg-stone-100 disabled:text-stone-500"
                                     >
                                       {saved ? <CheckCircle2 className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-                                      {saved ? 'Saved' : 'Add to Scout Board'}
+                                      {saved ? 'Queued' : 'Queue follow-up'}
                                     </button>
                                   </div>
                                 );
@@ -397,7 +393,7 @@ export default function BookPage() {
                                         })}
                                         disabled={saved}
                                         className="rounded-full border border-orange-200 bg-orange-50 p-1.5 text-orange-800 hover:bg-orange-100 disabled:bg-stone-100 disabled:text-stone-400"
-                                        title={saved ? 'Saved to Scout Board' : 'Add to Scout Board'}
+                                        title={saved ? 'Queued for follow-up' : 'Queue for follow-up'}
                                       >
                                         {saved ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
                                       </button>
@@ -435,12 +431,12 @@ export default function BookPage() {
                                           kind: 'weird',
                                           title: finding.label,
                                           detail: finding.reason,
-                                          status: 'Interesting',
+                                          status: 'Checking sources',
                                           links: finding.links,
                                         })}
                                         disabled={saved}
                                         className="rounded-full border border-emerald-200 bg-emerald-50 p-1.5 text-emerald-800 hover:bg-emerald-100 disabled:bg-stone-100 disabled:text-stone-400"
-                                        title={saved ? 'Saved to Scout Board' : 'Add to Scout Board'}
+                                        title={saved ? 'Queued for follow-up' : 'Queue for follow-up'}
                                       >
                                         {saved ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
                                       </button>
@@ -459,8 +455,8 @@ export default function BookPage() {
                           <div className="border-t border-emerald-900/10 p-5 lg:hidden">
                             <div className="mb-3 flex items-center justify-between gap-3">
                               <div>
-                                <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-800">Current Scout Board</p>
-                                <h3 className="font-bold text-stone-950">Saved follow-ups</h3>
+                                <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-800">Current Investigation Queue</p>
+                                <h3 className="font-bold text-stone-950">Follow-ups to verify</h3>
                               </div>
                               <span className="rounded-full border border-emerald-200 bg-white px-2.5 py-1 text-xs font-black text-emerald-900">{scoutBoard.length}</span>
                             </div>
@@ -476,20 +472,20 @@ export default function BookPage() {
                                       type="button"
                                       onClick={() => handleRemoveScoutItem(item.id)}
                                       className="rounded-full p-1.5 text-stone-400 hover:bg-red-50 hover:text-red-600"
-                                      title="Remove from Scout Board"
+                                      title="Remove from investigation queue"
                                     >
                                       <Trash2 className="h-3.5 w-3.5" />
                                     </button>
                                   </div>
+                                  <p className="mt-2 line-clamp-3 text-xs leading-5 text-stone-600">{item.detail}</p>
                                   <select
                                     value={item.status}
                                     onChange={(event) => handleScoutStatusChange(item.id, event.target.value as ScoutBoardItem['status'])}
                                     className={`mt-3 w-full rounded-full border px-2.5 py-1 text-xs font-bold outline-none ${statusClass(item.status)}`}
                                   >
-                                    {SCOUT_STATUSES.map((status) => (
-                                      <option key={status} value={status}>{status}</option>
-                                    ))}
+                                    <ScoutStatusOptions />
                                   </select>
+                                  <ScoutLeadLinks links={item.links} />
                                 </div>
                               ))}
                             </div>
@@ -554,15 +550,15 @@ export default function BookPage() {
                     <ClipboardList className="h-5 w-5" />
                   </div>
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-800">Margin Board</p>
-                    <h3 className="font-semibold text-stone-950">Active follow-ups</h3>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-800">Investigation Queue</p>
+                    <h3 className="font-semibold text-stone-950">Verification follow-ups</h3>
                   </div>
                 </div>
                 <span className="rounded-full border border-emerald-200 bg-white px-2.5 py-1 text-xs font-black text-emerald-900">
                   {scoutBoard.length}
                 </span>
               </div>
-              <p className="mt-3 text-sm leading-6 text-stone-600">Saved notes from the center feed. These stay with the report and export in JSON.</p>
+              <p className="mt-3 text-sm leading-6 text-stone-600">Follow-up checks from the center feed. Source leads stay with the report and export in JSON.</p>
               <div className="mt-4 space-y-3">
                 {scoutBoard.length ? scoutBoard.slice(0, 8).map((item) => (
                   <div key={item.id} className="rounded-2xl border border-stone-200 bg-white p-3">
@@ -575,7 +571,7 @@ export default function BookPage() {
                         type="button"
                         onClick={() => handleRemoveScoutItem(item.id)}
                         className="rounded-full p-1.5 text-stone-400 hover:bg-red-50 hover:text-red-600"
-                        title="Remove from Scout Board"
+                        title="Remove from investigation queue"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -587,26 +583,14 @@ export default function BookPage() {
                         onChange={(event) => handleScoutStatusChange(item.id, event.target.value as ScoutBoardItem['status'])}
                         className={`min-w-0 flex-1 rounded-full border px-2.5 py-1 text-xs font-bold outline-none ${statusClass(item.status)}`}
                       >
-                        {SCOUT_STATUSES.map((status) => (
-                          <option key={status} value={status}>{status}</option>
-                        ))}
+                        <ScoutStatusOptions />
                       </select>
-                      {item.links?.[0] ? (
-                        <a
-                          href={item.links[0].url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="rounded-full border border-emerald-200 bg-emerald-50 p-1.5 text-emerald-800 hover:bg-emerald-100"
-                          title={`Open ${item.links[0].label}`}
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" />
-                        </a>
-                      ) : null}
                     </div>
+                    <ScoutLeadLinks links={item.links} />
                   </div>
                 )) : (
                   <div className="rounded-2xl border border-dashed border-emerald-300 bg-white/70 p-4 text-sm leading-6 text-stone-600">
-                    Add Claim Cards, Skeptic checks, weird findings, or source leads to start your investigation queue.
+                    Queue Claim Cards, Skeptic checks, weird findings, or source leads to start your investigation.
                   </div>
                 )}
               </div>
@@ -678,7 +662,7 @@ export default function BookPage() {
                             })}
                             disabled={saved}
                             className="rounded-full border border-emerald-200 bg-emerald-50 p-1.5 text-emerald-800 hover:bg-emerald-100 disabled:bg-stone-100 disabled:text-stone-400"
-                            title={saved ? 'Saved to Scout Board' : 'Add to Scout Board'}
+                            title={saved ? 'Queued for follow-up' : 'Queue for follow-up'}
                           >
                             {saved ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
                           </button>
@@ -715,7 +699,7 @@ export default function BookPage() {
                           })}
                           disabled={saved}
                           className="rounded-full border border-orange-200 bg-orange-50 p-1.5 text-orange-800 hover:bg-orange-100 disabled:bg-stone-100 disabled:text-stone-400"
-                          title={saved ? 'Saved to Scout Board' : 'Add to Scout Board'}
+                          title={saved ? 'Queued for follow-up' : 'Queue for follow-up'}
                         >
                           {saved ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
                         </button>
@@ -751,12 +735,12 @@ export default function BookPage() {
                               kind: 'citation',
                               title: signal.label,
                               detail: signal.reason,
-                              status: 'Read next',
+                              status: 'Checking sources',
                               links: signal.links,
                             })}
                             disabled={saved}
                             className="rounded-full border border-emerald-200 bg-emerald-50 p-1.5 text-emerald-800 hover:bg-emerald-100 disabled:bg-stone-100 disabled:text-stone-400"
-                            title={saved ? 'Saved to Scout Board' : 'Add to Scout Board'}
+                            title={saved ? 'Queued for follow-up' : 'Queue for follow-up'}
                           >
                             {saved ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
                           </button>
@@ -805,12 +789,12 @@ export default function BookPage() {
                             kind: 'trail',
                             title: trail.title,
                             detail: trail.reason,
-                            status: 'Read next',
+                            status: 'Checking sources',
                             links: trail.links,
                           })}
                           disabled={saved}
                           className="rounded-full border border-emerald-200 bg-white p-1.5 text-emerald-800 hover:bg-emerald-50 disabled:bg-stone-100 disabled:text-stone-400"
-                          title={saved ? 'Saved to Scout Board' : 'Add to Scout Board'}
+                          title={saved ? 'Queued for follow-up' : 'Queue for follow-up'}
                         >
                           {saved ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
                         </button>
@@ -850,6 +834,42 @@ export default function BookPage() {
 
 function SparklesBadge() {
   return <ScrollText className="h-3 w-3" />;
+}
+
+function ScoutStatusOptions() {
+  return (
+    <>
+      {SCOUT_STATUS_GROUPS.map((group) => (
+        <optgroup key={group.label} label={group.label}>
+          {group.statuses.map((status) => (
+            <option key={status} value={status}>{status}</option>
+          ))}
+        </optgroup>
+      ))}
+    </>
+  );
+}
+
+function ScoutLeadLinks({ links }: { links?: ResearchLink[] }) {
+  if (!links?.length) return null;
+
+  return (
+    <div className="mt-3 flex flex-wrap gap-1.5">
+      {links.map((link, index) => (
+        <a
+          key={`${link.url}-${index}`}
+          href={link.url}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-800 hover:border-emerald-400 hover:bg-emerald-100"
+          title={`Open ${link.source}: ${link.label}`}
+        >
+          {link.label}
+          <ExternalLink className="h-3 w-3" />
+        </a>
+      ))}
+    </div>
+  );
 }
 
 function getClaimCards(intelligence: PDF['intelligence']): ClaimCard[] {
@@ -915,14 +935,26 @@ function skepticLabel(type: SkepticSignal['type']) {
   }
 }
 
+function isResolvedScoutStatus(status: ScoutBoardItem['status']) {
+  return status === 'Verified' || status === 'Contradicted' || status === 'Done';
+}
+
 function statusClass(status: ScoutBoardItem['status']) {
   switch (status) {
+    case 'Verified':
     case 'Done':
       return 'border-emerald-200 bg-emerald-50 text-emerald-900';
+    case 'Contradicted':
+      return 'border-red-200 bg-red-50 text-red-900';
+    case 'Checking sources':
     case 'Read next':
       return 'border-blue-200 bg-blue-50 text-blue-900';
+    case 'Needs source':
+      return 'border-violet-200 bg-violet-50 text-violet-900';
     case 'Interesting':
       return 'border-amber-200 bg-amber-50 text-amber-900';
+    case 'Needs verification':
+    case 'To verify':
     default:
       return 'border-orange-200 bg-orange-50 text-orange-900';
   }

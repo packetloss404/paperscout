@@ -12,11 +12,12 @@ interface Message {
 interface AIChatPanelProps {
   pdfId: string;
   pdfTitle: string;
+  pdfContent: string;
   isOpen: boolean;
   onClose: () => void;
 }
 
-export function AIChatPanel({ pdfId, pdfTitle, isOpen, onClose }: AIChatPanelProps) {
+export function AIChatPanel({ pdfId, pdfTitle, pdfContent, isOpen, onClose }: AIChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -53,6 +54,8 @@ export function AIChatPanel({ pdfId, pdfTitle, isOpen, onClose }: AIChatPanelPro
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           pdfId,
+          pdfTitle,
+          pdfContent,
           message: userMessage.content,
           history: messages,
         }),
@@ -69,7 +72,7 @@ export function AIChatPanel({ pdfId, pdfTitle, isOpen, onClose }: AIChatPanelPro
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
-    } catch (error) {
+    } catch {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',

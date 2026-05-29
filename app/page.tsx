@@ -32,6 +32,11 @@ export default function HomePage() {
 
   const handleUploaded = (book: PDF) => {
     setPdfs(upsertLocalBook(book));
+    router.push(`/book/${book.id}`);
+  };
+
+  const handleImported = (book: PDF) => {
+    setPdfs(upsertLocalBook(book));
   };
 
   const handleLoadDemo = () => {
@@ -71,21 +76,21 @@ export default function HomePage() {
             </p>
             
             <div className="mb-8 flex flex-col gap-3 sm:flex-row">
-              <button
-                type="button"
-                onClick={handleLoadDemo}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-900/10 transition-all hover:-translate-y-0.5 hover:bg-emerald-800 hover:shadow-xl"
-              >
-                <Compass className="h-4 w-4" />
-                Load demo investigation
-              </button>
               <a
                 href="#upload"
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white px-5 py-3 text-sm font-bold text-gray-800 shadow-sm transition-all hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-900"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-900/10 transition-all hover:-translate-y-0.5 hover:bg-emerald-800 hover:shadow-xl"
               >
                 <FileText className="h-4 w-4" />
                 Upload your own PDF
               </a>
+              <button
+                type="button"
+                onClick={handleLoadDemo}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-500 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700"
+              >
+                <Compass className="h-4 w-4" />
+                Open demo brief
+              </button>
             </div>
 
             {/* Feature Pills */}
@@ -121,10 +126,10 @@ export default function HomePage() {
                 Upload a Report
               </h2>
               <p className="text-gray-500 text-sm mt-1">
-                Upload a PDF or import a previously exported PaperScout JSON file
+                PaperScout will read the PDF, map sections, surface claims, check caveats, and build research trails.
               </p>
             </div>
-            <JsonImporter onImported={handleUploaded} />
+            <JsonImporter onImported={handleImported} />
           </div>
           <PDFUploader onUploaded={handleUploaded} />
         </section>

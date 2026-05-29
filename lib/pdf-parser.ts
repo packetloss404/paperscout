@@ -67,7 +67,7 @@ function parseChapters(text: string): Chapter[] {
       }
 
       currentChapter = {
-        id: Math.random().toString(36).substr(2, 9),
+        id: crypto.randomUUID(),
         title: line.trim(),
         content: '',
       };
@@ -90,7 +90,7 @@ function parseChapters(text: string): Chapter[] {
       const lines = section.split('\n');
       const title = lines[0].slice(0, 60) || `Section ${i + 1}`;
       chapters.push({
-        id: Math.random().toString(36).substr(2, 9),
+        id: crypto.randomUUID(),
         title,
         content: section,
       });

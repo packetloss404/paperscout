@@ -65,12 +65,24 @@ export interface WeirdFinding {
   links: ResearchLink[];
 }
 
+export type ScoutBoardStatus =
+  | "Needs verification"
+  | "Checking sources"
+  | "Needs source"
+  | "Verified"
+  | "Contradicted"
+  // Legacy saved values are still accepted so older exported reports load cleanly.
+  | "To verify"
+  | "Interesting"
+  | "Read next"
+  | "Done";
+
 export interface ScoutBoardItem {
   id: string;
   kind: "claim" | "caveat" | "citation" | "trail" | "entity" | "skeptic" | "weird";
   title: string;
   detail: string;
-  status: "To verify" | "Interesting" | "Read next" | "Done";
+  status: ScoutBoardStatus;
   links?: ResearchLink[];
   createdAt: string;
 }
@@ -98,8 +110,8 @@ export interface Annotation {
   createdAt: string;
 }
 
-// Server-side fallback only. The hackathon app stores books in browser localStorage
-// so demos do not depend on auth, databases, or paid Vercel storage.
+// Server-side fallback only. The demo app stores books in browser localStorage
+// so local runs do not depend on auth, databases, or paid object storage.
 const pdfStorage = new Map<string, PDF>();
 const annotationStorage = new Map<string, Annotation[]>();
 

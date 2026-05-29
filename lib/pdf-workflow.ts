@@ -1,6 +1,7 @@
 import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { createHook, getStepMetadata, getWorkflowMetadata, getWritable, RetryableError, sleep } from "workflow";
+import { PDF_PROCESSING_LIMITS, truncateString } from "@/lib/pdf-limits";
 import {
   type CitationSignal,
   type ClaimCard,
@@ -160,8 +161,9 @@ export async function processPDFWorkflow(
     title: input.title,
     rawText: input.rawText,
   });
-  const processedChapters = await Promise.all(
-    approvedChapterMap.map(async (chunk, i) =>
+  const processedChapters = await convertChaptersWithBoundedConcurrency(
+    approvedChapterMap,
+    async (chunk, i) =>
       convertChapterWithProgressStep({
         pdfId: input.pdfId,
         index: i + 1,
@@ -169,7 +171,6 @@ export async function processPDFWorkflow(
         title: chunk.title,
         text: chunk.text,
       })
-    )
   );
   const intelligence = await intelligencePromise;
 
@@ -347,8 +348,9 @@ export async function processPDF(
     const chapterMap = await analyzeAndChunk(rawText);
     const intelligencePromise = generateResearchIntelligence(title, rawText);
 
-    const processedChapters = await Promise.all(
-      chapterMap.map((chunk, i) =>
+    const processedChapters = await convertChaptersWithBoundedConcurrency(
+      chapterMap,
+      (chunk, i) =>
         convertChapter(
           pdfId,
           i + 1,
@@ -356,7 +358,6 @@ export async function processPDF(
           chunk.title,
           chunk.text
         )
-      )
     );
     const intelligence = await intelligencePromise;
 
@@ -398,7 +399,7 @@ function assembleBook(input: {
 function summarizeChapterMap(chapterMap: ChapterChunk[]): ChapterMapSummaryItem[] {
   return chapterMap.map((chapter, index) => ({
     index: index + 1,
-    title: chapter.title,
+    title: truncateString(chapter.title, PDF_PROCESSING_LIMITS.maxChapterTitleCharacters),
     characters: chapter.text.length,
   }));
 }
@@ -409,14 +410,84 @@ function applyChapterTitleApprovals(
 ): ChapterChunk[] {
   const titles = new Map(
     approvedChapters
-      .filter((chapter) => Number.isInteger(chapter.index) && typeof chapter.title === "string" && chapter.title.trim())
-      .map((chapter) => [chapter.index, chapter.title.trim()])
+      .map((chapter) => {
+        const title = typeof chapter.title === "string" ? cleanChapterTitle(chapter.title) : "";
+        return Number.isInteger(chapter.index) && chapter.index > 0 && title ? [chapter.index, title] as const : null;
+      })
+      .filter((chapter): chapter is readonly [number, string] => Boolean(chapter))
   );
 
   return chapterMap.map((chapter, index) => ({
     ...chapter,
     title: titles.get(index + 1) || chapter.title,
   }));
+}
+
+async function convertChaptersWithBoundedConcurrency(
+  chapterMap: ChapterChunk[],
+  convert: (chunk: ChapterChunk, index: number) => Promise<ChapterResult>
+): Promise<ChapterResult[]> {
+  const results: ChapterResult[] = [];
+  const concurrency = Math.max(1, PDF_PROCESSING_LIMITS.chapterConversionConcurrency);
+
+  for (let start = 0; start < chapterMap.length; start += concurrency) {
+    const batch = chapterMap.slice(start, start + concurrency);
+    const converted = await Promise.all(batch.map((chunk, offset) => convert(chunk, start + offset)));
+    results.push(...converted);
+  }
+
+  return results;
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function cleanChapterTitle(value: string): string {
+  return truncateString(
+    value.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim(),
+    PDF_PROCESSING_LIMITS.maxChapterTitleCharacters
+  );
+}
+
+function normalizeChapterTitle(value: unknown, index: number): string {
+  return typeof value === "string" ? cleanChapterTitle(value) || `Section ${index}` : `Section ${index}`;
+}
+
+function normalizeChapterText(value: unknown): string {
+  if (typeof value !== "string") return "";
+
+  return truncateString(value.replace(/\u0000/g, "").trim(), PDF_PROCESSING_LIMITS.maxChapterTextCharacters);
+}
+
+function normalizeChapterCandidates(candidates: unknown[]): ChapterChunk[] {
+  const chapters: ChapterChunk[] = [];
+
+  for (const candidate of candidates) {
+    if (chapters.length >= PDF_PROCESSING_LIMITS.maxChapterCount) break;
+    if (!isObjectRecord(candidate)) continue;
+
+    const text = normalizeChapterText(candidate.text);
+    if (!text) continue;
+
+    const index = chapters.length + 1;
+    chapters.push({
+      title: normalizeChapterTitle(candidate.title, index),
+      text,
+    });
+  }
+
+  return chapters;
+}
+
+function normalizeChapterMap(value: unknown, fallbackText: string): ChapterChunk[] {
+  const parsedChapters = Array.isArray(value) ? normalizeChapterCandidates(value) : [];
+  if (parsedChapters.length > 0) return parsedChapters;
+
+  const fallbackChapters = normalizeChapterCandidates(splitNaive(fallbackText));
+  if (fallbackChapters.length > 0) return fallbackChapters;
+
+  return [{ title: "Content", text: truncateString(fallbackText.trim(), PDF_PROCESSING_LIMITS.maxChapterTextCharacters) }];
 }
 
 async function analyzeAndChunk(text: string): Promise<ChapterChunk[]> {
@@ -439,15 +510,14 @@ Rules:
 - Preserve code snippets, figures references, table references
 - Return EXACTLY this JSON format (no markdown code blocks, just raw JSON):
 [{"title":"Chapter Title","text":"The full text content for this chapter..."}]`,
-    prompt: `Analyze this research paper and chunk it into logical chapters. Return a JSON array.\n\n${text.slice(0, 50000)}`,
+    prompt: `Analyze this research paper and chunk it into logical chapters. Return a JSON array.\n\n${text.slice(0, PDF_PROCESSING_LIMITS.maxAnalysisInputCharacters)}`,
   });
 
   try {
     const cleaned = chunked.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    return JSON.parse(cleaned) as ChapterChunk[];
+    return normalizeChapterMap(JSON.parse(cleaned) as unknown, text);
   } catch {
-    const fallback = splitNaive(text);
-    return fallback;
+    return normalizeChapterMap(splitNaive(text), text);
   }
 }
 
@@ -508,7 +578,7 @@ Style:
 - Use bold labels and visual hierarchy.
 - Avoid school/study language.
 - Return ONLY the converted Markdown content, no explanations.`,
-    prompt: `Create a premium PaperScout research-intelligence chapter from this source text.\n\nSection ${index} of ${total}: ${title}\n\nSOURCE TEXT:\n${text.slice(0, 12000)}`,
+    prompt: `Create a premium PaperScout research-intelligence chapter from this source text.\n\nSection ${index} of ${total}: ${title}\n\nSOURCE TEXT:\n${text.slice(0, PDF_PROCESSING_LIMITS.maxChapterPromptCharacters)}`,
   });
 
   return {
@@ -595,7 +665,7 @@ Rules:
 - Produce 3-5 weirdFindings that would make a demo audience say "wait, what?" without exaggerating the source.
 - Make queries specific enough to be useful in Google Scholar, Semantic Scholar, arXiv, Crossref, OpenAlex, or normal web search.
 - Include trails for adjacent concepts, cited methods, important organizations/datasets, and skeptical follow-up where possible.`,
-    prompt: `Analyze this document and produce a research intelligence brief.\n\nTitle: ${title}\n\nDOCUMENT TEXT:\n${text.slice(0, 60000)}`,
+    prompt: `Analyze this document and produce a research intelligence brief.\n\nTitle: ${title}\n\nDOCUMENT TEXT:\n${text.slice(0, PDF_PROCESSING_LIMITS.maxIntelligenceInputCharacters)}`,
   });
 
   try {

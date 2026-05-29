@@ -6,6 +6,10 @@ function tokenForRun(runId: string) {
   return `chapter-map:${runId}`;
 }
 
+function isTerminalStatus(status: string) {
+  return status === 'completed' || status === 'failed' || status === 'cancelled' || status === 'canceled';
+}
+
 export async function GET(request: NextRequest) {
   const runId = request.nextUrl.searchParams.get('runId');
 
@@ -32,6 +36,10 @@ export async function GET(request: NextRequest) {
         book: result.book,
         error: result.error,
       });
+    }
+
+    if (isTerminalStatus(workflowStatus)) {
+      return NextResponse.json({ runId, status: workflowStatus, workflowStatus });
     }
 
     try {
